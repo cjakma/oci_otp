@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="false">otp.pm-oci.duckdns.org</domain>
+        <domain includeSubdomains="false">portfolio.pm-oci.duckdns.org</domain>
+    </domain-config>
+</network-security-config>

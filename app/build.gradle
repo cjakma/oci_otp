@@ -1,0 +1,32 @@
+plugins {
+    id 'com.android.application'
+    id 'com.google.gms.google-services'
+}
+
+def portalApiBaseUrl = project.findProperty('portalApiBaseUrl') ?: 'https://portfolio.pm-oci.duckdns.org'
+def adminDeviceEnrollmentKey = project.findProperty('adminDeviceEnrollmentKey') ?: System.getenv('ADMIN_PORTAL_DEVICE_ENROLLMENT_KEY') ?: ''
+
+android {
+    namespace 'org.pmoci.kskillauth'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'org.pmoci.kskillauth'
+        minSdk 23
+        targetSdk 35
+        versionCode 3
+        versionName '0.3.0'
+        buildConfigField 'String', 'AUTH_BASE_URL', '"https://otp.pm-oci.duckdns.org"'
+        buildConfigField 'String', 'PORTAL_API_BASE_URL', "\"${portalApiBaseUrl}\""
+        buildConfigField 'String', 'ADMIN_DEVICE_ENROLLMENT_KEY', "\"${adminDeviceEnrollmentKey}\""
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+}
+
+dependencies {
+    implementation platform('com.google.firebase:firebase-bom:33.1.2') // BOM 사용 권장
+    implementation 'com.google.firebase:firebase-messaging'           // FCM 의존성
+}

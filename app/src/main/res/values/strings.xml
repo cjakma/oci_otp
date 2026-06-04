@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">pm-oci 인증용</string>
+    <string name="ssl_error_message">SSL 인증서 오류로 접속을 차단했습니다.</string>
+</resources>

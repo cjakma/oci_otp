@@ -1,4 +1,4 @@
-# pm-oci 인증용 Android 앱
+# Hermes Agent gateway 이용한 인증용 Android 앱
 
 대상 기기: Samsung Galaxy S26, Samsung Galaxy S22 Ultra, LG V50 기준으로 구성한 Hermes/K-skill 인증 입력 앱입니다.
 

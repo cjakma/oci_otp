@@ -41,6 +41,11 @@ public class MainActivity extends Activity {
 
         registerForAdminPortalRequests();
 
+        // OTP redesign: prompt one-time enrollment before the device can approve logins.
+        if (!LocalCredentialStore.isEnrolled(this)) {
+            startActivity(new android.content.Intent(this, EnrollmentActivity.class));
+        }
+
         webView = new WebView(this);
         configureWebView(webView);
         setContentView(webView);

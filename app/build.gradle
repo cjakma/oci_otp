@@ -5,6 +5,9 @@ plugins {
 
 def portalApiBaseUrl = project.findProperty('portalApiBaseUrl') ?: 'https://portfolio.pm-oci.duckdns.org'
 def adminDeviceEnrollmentKey = project.findProperty('adminDeviceEnrollmentKey') ?: System.getenv('ADMIN_PORTAL_DEVICE_ENROLLMENT_KEY') ?: ''
+// OTP redesign: the Hermes Gateway the phone submits its proof to (empty -> post the proof
+// directly to the 0852 server's /api/admin/portal-callback using the device enrollment key).
+def gatewayBaseUrl = project.findProperty('gatewayBaseUrl') ?: 'https://otp.pm-oci.duckdns.org'
 
 android {
     namespace 'org.pmoci.kskillauth'
@@ -14,19 +17,26 @@ android {
         applicationId 'org.pmoci.kskillauth'
         minSdk 23
         targetSdk 35
-        versionCode 3
-        versionName '0.3.0'
+        versionCode 4
+        versionName '0.4.0'
         buildConfigField 'String', 'AUTH_BASE_URL', '"https://otp.pm-oci.duckdns.org"'
         buildConfigField 'String', 'PORTAL_API_BASE_URL', "\"${portalApiBaseUrl}\""
+        buildConfigField 'String', 'GATEWAY_BASE_URL', "\"${gatewayBaseUrl}\""
         buildConfigField 'String', 'ADMIN_DEVICE_ENROLLMENT_KEY', "\"${adminDeviceEnrollmentKey}\""
     }
 
     buildFeatures {
         buildConfig true
     }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
 }
 
 dependencies {
     implementation platform('com.google.firebase:firebase-bom:33.1.2') // BOM 사용 권장
     implementation 'com.google.firebase:firebase-messaging'           // FCM 의존성
+    implementation 'org.signal:argon2:13.1'                           // Argon2id KDF (native)
 }

@@ -18,6 +18,7 @@ final class PortalApi {
     private PortalApi() {
     }
 
+    /** Registers the FCM token with the 0852 server (device-enrollment-key protected). */
     static void registerFcmToken(String token) {
         if (token == null || token.trim().isEmpty() || BuildConfig.ADMIN_DEVICE_ENROLLMENT_KEY.isEmpty()) {
             return;
@@ -27,20 +28,21 @@ final class PortalApi {
             try {
                 JSONObject body = new JSONObject();
                 body.put("fcm_token", token);
-                post("/api/admin/portal-device/token", body);
+                post(BuildConfig.PORTAL_API_BASE_URL, "/api/admin/portal-device/token", body, true);
             } catch (Exception ignored) {
                 // Firebase will issue the token again, and MainActivity also retries at launch.
             }
         }).start();
     }
 
-    static void approveChallenge(String challengeId, String password, Callback callback) {
+    /** One-time enrollment: registers the Keystore public key + login-secret verifier. */
+    static void enroll(String devicePublicKeyBase64, String verifierHex, Callback callback) {
         new Thread(() -> {
             try {
                 JSONObject body = new JSONObject();
-                body.put("challenge_id", challengeId);
-                body.put("admin_pw", password);
-                String message = post("/api/admin/portal-login/approve", body);
+                body.put("device_pubkey", devicePublicKeyBase64);
+                body.put("verifier", verifierHex);
+                String message = post(BuildConfig.PORTAL_API_BASE_URL, "/api/admin/portal-enroll", body, true);
                 callback.onComplete(true, message);
             } catch (Exception error) {
                 callback.onComplete(false, error.getMessage());
@@ -48,15 +50,47 @@ final class PortalApi {
         }).start();
     }
 
-    private static String post(String path, JSONObject body) throws Exception {
-        URL url = new URL(BuildConfig.PORTAL_API_BASE_URL + path);
+    /**
+     * Submits the challenge-bound proof + ECDSA signature.
+     * - When a Hermes Gateway is configured, posts to the gateway (public /api/submit); the
+     *   gateway then calls the 0852 server back.
+     * - Otherwise posts straight to the server callback using the device enrollment key.
+     */
+    static void submitProof(String challengeId, String proofHex, String signatureBase64, Callback callback) {
+        new Thread(() -> {
+            try {
+                String gatewayBaseUrl = BuildConfig.GATEWAY_BASE_URL;
+                JSONObject body = new JSONObject();
+                String message;
+                if (gatewayBaseUrl != null && !gatewayBaseUrl.trim().isEmpty()) {
+                    body.put("cid", challengeId);
+                    body.put("proof", proofHex);
+                    body.put("sig", signatureBase64);
+                    message = post(gatewayBaseUrl, "/api/submit", body, false);
+                } else {
+                    body.put("challenge_id", challengeId);
+                    body.put("proof", proofHex);
+                    body.put("sig", signatureBase64);
+                    message = post(BuildConfig.PORTAL_API_BASE_URL, "/api/admin/portal-callback", body, true);
+                }
+                callback.onComplete(true, message);
+            } catch (Exception error) {
+                callback.onComplete(false, error.getMessage());
+            }
+        }).start();
+    }
+
+    private static String post(String baseUrl, String path, JSONObject body, boolean withDeviceKey) throws Exception {
+        URL url = new URL(baseUrl + path);
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestMethod("POST");
         connection.setConnectTimeout(10000);
         connection.setReadTimeout(10000);
         connection.setDoOutput(true);
         connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
-        connection.setRequestProperty("X-Admin-Device-Key", BuildConfig.ADMIN_DEVICE_ENROLLMENT_KEY);
+        if (withDeviceKey) {
+            connection.setRequestProperty("X-Admin-Device-Key", BuildConfig.ADMIN_DEVICE_ENROLLMENT_KEY);
+        }
 
         byte[] payload = body.toString().getBytes(StandardCharsets.UTF_8);
         try (OutputStream output = connection.getOutputStream()) {

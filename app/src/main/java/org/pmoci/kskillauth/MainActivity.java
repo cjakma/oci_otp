@@ -1,7 +1,7 @@
 package org.pmoci.kskillauth;
 
 import android.Manifest;
-import android.app.Activity;
+import androidx.appcompat.app.AppCompatActivity;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.net.http.SslError;
@@ -23,7 +23,7 @@ import com.google.firebase.messaging.FirebaseMessaging;
  * This intentionally reuses the existing mobile web auth UI instead of
  * duplicating the enabled/disabled/status logic in Android code.
  */
-public class MainActivity extends Activity {
+public class MainActivity extends AppCompatActivity {
     private static final String AUTH_URL = BuildConfig.AUTH_BASE_URL;
     private static final String ALLOWED_HOST = Uri.parse(AUTH_URL).getHost();
 

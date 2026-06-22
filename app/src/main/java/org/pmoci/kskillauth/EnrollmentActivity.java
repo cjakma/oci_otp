@@ -1,8 +1,11 @@
 package org.pmoci.kskillauth;
 
-import android.app.Activity;
+import androidx.appcompat.app.AppCompatActivity;
+import android.graphics.Color;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.InputType;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -12,15 +15,13 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
+
 /**
  * One-time device enrollment.
- *
- * Generates the Keystore device key, derives DEK = Argon2id(userKey, salt), wraps a random
- * login-secret with AES-256-GCM, stores {salt, ciphertext} locally, and registers
- * {device_pubkey, verifier=SHA-256(login-secret)} with the 0852 server. The userKey is never
- * stored or transmitted. Losing the userKey is unrecoverable by design (server reset only).
  */
-public class EnrollmentActivity extends Activity {
+public class EnrollmentActivity extends AppCompatActivity {
     private static final int SALT_BYTES = 16;
     private static final int LOGIN_SECRET_BYTES = 32;
 
@@ -56,15 +57,17 @@ public class EnrollmentActivity extends Activity {
         descParams.setMargins(0, dp(14), 0, 0);
         root.addView(description, descParams);
 
-        userKeyInput = passwordField("userKey");
+        TextInputLayout userKeyLayout = passwordLayout("userKey");
+        userKeyInput = userKeyLayout.getEditText();
         LinearLayout.LayoutParams p1 = matchWrap();
         p1.setMargins(0, dp(20), 0, 0);
-        root.addView(userKeyInput, p1);
+        root.addView(userKeyLayout, p1);
 
-        confirmInput = passwordField("userKey 확인");
+        TextInputLayout confirmLayout = passwordLayout("userKey 확인");
+        confirmInput = confirmLayout.getEditText();
         LinearLayout.LayoutParams p2 = matchWrap();
         p2.setMargins(0, dp(12), 0, 0);
-        root.addView(confirmInput, p2);
+        root.addView(confirmLayout, p2);
 
         statusText = new TextView(this);
         statusText.setTextSize(14);
@@ -74,26 +77,45 @@ public class EnrollmentActivity extends Activity {
 
         enrollButton = new Button(this);
         enrollButton.setText("등록");
+        enrollButton.setEnabled(false);
+        enrollButton.setBackgroundColor(Color.LTGRAY);
+        enrollButton.setTextColor(Color.DKGRAY);
         enrollButton.setOnClickListener(view -> enroll());
         LinearLayout.LayoutParams bp = matchWrap();
         bp.setMargins(0, dp(20), 0, 0);
         root.addView(enrollButton, bp);
 
         setContentView(root);
+
+        TextWatcher watcher = new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override
+            public void afterTextChanged(Editable s) {
+                updateButtonState();
+            }
+        };
+        userKeyInput.addTextChangedListener(watcher);
+        confirmInput.addTextChangedListener(watcher);
+    }
+
+    private void updateButtonState() {
+        String p1 = userKeyInput.getText().toString();
+        String p2 = confirmInput.getText().toString();
+        boolean match = !p1.isEmpty() && p1.equals(p2);
+        
+        enrollButton.setEnabled(match);
+        if (match) {
+            enrollButton.setBackgroundColor(Color.parseColor("#101827"));
+            enrollButton.setTextColor(Color.WHITE);
+        } else {
+            enrollButton.setBackgroundColor(Color.LTGRAY);
+            enrollButton.setTextColor(Color.DKGRAY);
+        }
     }
 
     private void enroll() {
         String userKey = userKeyInput.getText().toString();
-        String confirm = confirmInput.getText().toString();
-
-        if (userKey.isEmpty()) {
-            userKeyInput.setError("userKey is required.");
-            return;
-        }
-        if (!userKey.equals(confirm)) {
-            confirmInput.setError("userKey가 일치하지 않습니다.");
-            return;
-        }
 
         enrollButton.setEnabled(false);
         userKeyInput.setEnabled(false);
@@ -102,16 +124,13 @@ public class EnrollmentActivity extends Activity {
 
         new Thread(() -> {
             try {
-                // Ensure the Keystore device key exists and grab its public key.
                 String devicePublicKeyBase64 = DeviceKeyStore.publicKeyBase64();
-
                 byte[] salt = CryptoUtil.randomBytes(SALT_BYTES);
                 byte[] dek = CryptoUtil.deriveKey(userKey, salt);
                 byte[] loginSecret = CryptoUtil.randomBytes(LOGIN_SECRET_BYTES);
                 byte[] ivAndCiphertext = CryptoUtil.aesGcmEncrypt(dek, loginSecret);
                 String verifierHex = CryptoUtil.sha256HexOfBytes(loginSecret);
 
-                // Persist non-secret material locally BEFORE the network call so retries work.
                 LocalCredentialStore.save(this, salt, ivAndCiphertext);
 
                 PortalApi.enroll(devicePublicKeyBase64, verifierHex, (success, message) ->
@@ -121,7 +140,6 @@ public class EnrollmentActivity extends Activity {
                                 finish();
                                 return;
                             }
-                            // Roll back local material if the server rejected enrollment.
                             LocalCredentialStore.clear(this);
                             reEnable(message == null ? "등록 실패" : message);
                         }));
@@ -133,18 +151,23 @@ public class EnrollmentActivity extends Activity {
     }
 
     private void reEnable(String message) {
-        enrollButton.setEnabled(true);
+        updateButtonState();
         userKeyInput.setEnabled(true);
         confirmInput.setEnabled(true);
         statusText.setText(message);
     }
 
-    private EditText passwordField(String hint) {
-        EditText input = new EditText(this);
-        input.setHint(hint);
+    private TextInputLayout passwordLayout(String hint) {
+        TextInputLayout layout = new TextInputLayout(this);
+        layout.setHint(hint);
+        layout.setEndIconMode(TextInputLayout.END_ICON_PASSWORD_TOGGLE);
+        
+        TextInputEditText input = new TextInputEditText(layout.getContext());
         input.setSingleLine(true);
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        return input;
+        
+        layout.addView(input);
+        return layout;
     }
 
     private LinearLayout.LayoutParams matchWrap() {

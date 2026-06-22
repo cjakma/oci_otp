@@ -1,6 +1,6 @@
 package org.pmoci.kskillauth;
 
-import android.app.Activity;
+import androidx.appcompat.app.AppCompatActivity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.InputType;
@@ -19,7 +19,7 @@ import java.nio.charset.StandardCharsets;
  * Native approval screen. The user enters the memorized userKey; the proof is derived and
  * signed entirely on-device and submitted through the Hermes Gateway. No password is sent.
  */
-public class AdminPortalApprovalActivity extends Activity {
+public class AdminPortalApprovalActivity extends AppCompatActivity {
     private EditText userKeyInput;
     private Button approveButton;
     private TextView statusText;

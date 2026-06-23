@@ -38,6 +38,22 @@ public class EnrollmentActivity extends AppCompatActivity {
                 WindowManager.LayoutParams.FLAG_SECURE
         );
 
+        // First-launch enrollment is gated by device authentication (fingerprint, else pattern/PIN).
+        DeviceAuth.authenticate(this, "인증앱 등록", "기기 인증으로 잠금을 해제하세요.", new DeviceAuth.Result() {
+            @Override
+            public void onSuccess() {
+                buildUi();
+            }
+
+            @Override
+            public void onFailure(String message) {
+                Toast.makeText(EnrollmentActivity.this, "인증 실패: " + message, Toast.LENGTH_LONG).show();
+                finish();
+            }
+        });
+    }
+
+    private void buildUi() {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER_HORIZONTAL);

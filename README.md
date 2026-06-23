@@ -48,8 +48,18 @@
    adb install -r app/build/outputs/apk/debug/app-debug.apk
    ```
 
-## 최신 업데이트 (v0.4.0)
-- **UI 개선**: 등록(Enrollment) 화면에 Material Design 적용.
-- **편의성**: 비밀번호 가시성 토글(Eye Icon) 추가.
-- **유효성 검사**: `userKey` 일치 여부에 따른 등록 버튼 활성화 및 색상 변경 로직 추가.
-- **안정성**: `AppCompatActivity` 도입 및 테마 호환성 수정.
+## 최신 업데이트 (v0.5.0) — 지문인식 추가
+- **디바이스 인증(지문/패턴) 연동**: `androidx.biometric` 기반 `DeviceAuth` 추가. 지문 우선, 없으면 기기 잠금(패턴/PIN)으로 폴백.
+  - 최초 설치 시 Enrollment, 승인 화면, 설정 진입이 모두 디바이스 인증으로 보호됩니다.
+- **설정 화면(`SettingsActivity`)**: 메인 화면 우측 상단 ⚙ 설정 버튼에서 진입(디바이스 인증 필요).
+  - **인증 방식 선택**: 지문 우선 / 패턴·기기잠금만.
+  - **userKey 등록·삭제**: eye 아이콘으로 입력값 표시 가능(등록 시).
+  - **서버 주소 등록·삭제**: 컴파일된 기본값을 런타임에 덮어쓰는 서버 주소(HTTPS) 설정.
+  - **메인 화면 이미지 등록·삭제**: 갤러리에서 선택, **GIF 재생 지원**(Glide).
+- **메인 화면 네이티브화**: 게이트웨이 웹 페이지(WebView) 대신 설정 가능한 이미지 + 설정 버튼의 네이티브 화면으로 전환.
+- **서버 연동**: 설정한 서버 주소로 FCM 토큰 등록/enroll/proof 전송(`PortalApi` 런타임 base URL 오버라이드).
+- **네트워크 보안**: cleartext(HTTP)는 계속 차단, HTTPS는 시스템 신뢰 기관 기반으로 임의 호스트 허용(사용자 지정 서버 대응).
+
+### 빌드 참고
+- 추가 의존성: `androidx.biometric:biometric:1.1.0`, `com.github.bumptech.glide:glide:4.16.0`.
+- API 30+ 에서는 지문+기기잠금을 한 프롬프트로 제공합니다. API 28–29(예: V50)에서 **지문 없이 패턴/PIN만** 사용하는 경우 별도 처리(KeyguardManager)가 필요할 수 있어 실기기 확인을 권장합니다.

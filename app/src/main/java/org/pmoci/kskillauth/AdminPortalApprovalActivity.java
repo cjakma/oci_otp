@@ -53,6 +53,22 @@ public class AdminPortalApprovalActivity extends AppCompatActivity {
             return;
         }
 
+        // Approving a login is gated by device authentication (fingerprint, else pattern/PIN).
+        DeviceAuth.authenticate(this, "로그인 승인 인증", "기기 인증으로 잠금을 해제하세요.", new DeviceAuth.Result() {
+            @Override
+            public void onSuccess() {
+                buildUi(adminId, expiresAt);
+            }
+
+            @Override
+            public void onFailure(String message) {
+                Toast.makeText(AdminPortalApprovalActivity.this, "인증 실패: " + message, Toast.LENGTH_LONG).show();
+                finish();
+            }
+        });
+    }
+
+    private void buildUi(String adminId, String expiresAt) {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER_HORIZONTAL);

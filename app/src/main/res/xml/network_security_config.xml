@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cleartext (HTTP) is never permitted. HTTPS is allowed to any system-trusted host so the
+  user-configurable server address (Settings → 서버 주소) works for arbitrary HTTPS endpoints.
+  The previous hard-coded pm-oci domain pinning was removed to support that runtime override.
+-->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="false" />
-    <domain-config cleartextTrafficPermitted="false">
-        <domain includeSubdomains="false">otp.pm-oci.duckdns.org</domain>
-        <domain includeSubdomains="false">portfolio.pm-oci.duckdns.org</domain>
-    </domain-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
 </network-security-config>

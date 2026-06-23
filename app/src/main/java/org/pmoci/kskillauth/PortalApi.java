@@ -15,10 +15,23 @@ final class PortalApi {
         void onComplete(boolean success, String message);
     }
 
+    // Runtime override of the server base URL (Settings → 서버 주소). When null/empty the
+    // compiled-in BuildConfig.PORTAL_API_BASE_URL is used. Set at app launch from AppPrefs.
+    private static volatile String baseUrlOverride = null;
+
     private PortalApi() {
     }
 
-    /** Registers the FCM token with the 0852 server (device-enrollment-key protected). */
+    static void setBaseUrlOverride(String url) {
+        baseUrlOverride = (url == null || url.trim().isEmpty()) ? null : url.trim();
+    }
+
+    /** The effective server base URL: the Settings override if set, else the compiled default. */
+    static String portalBaseUrl() {
+        return baseUrlOverride != null ? baseUrlOverride : BuildConfig.PORTAL_API_BASE_URL;
+    }
+
+    /** Registers the FCM token with the server (device-enrollment-key protected). */
     static void registerFcmToken(String token) {
         if (token == null || token.trim().isEmpty() || BuildConfig.ADMIN_DEVICE_ENROLLMENT_KEY.isEmpty()) {
             return;
@@ -28,7 +41,7 @@ final class PortalApi {
             try {
                 JSONObject body = new JSONObject();
                 body.put("fcm_token", token);
-                post(BuildConfig.PORTAL_API_BASE_URL, "/api/admin/portal-device/token", body, true);
+                post(portalBaseUrl(), "/api/admin/portal-device/token", body, true);
             } catch (Exception ignored) {
                 // Firebase will issue the token again, and MainActivity also retries at launch.
             }
@@ -42,7 +55,7 @@ final class PortalApi {
                 JSONObject body = new JSONObject();
                 body.put("device_pubkey", devicePublicKeyBase64);
                 body.put("verifier", verifierHex);
-                String message = post(BuildConfig.PORTAL_API_BASE_URL, "/api/admin/portal-enroll", body, true);
+                String message = post(portalBaseUrl(), "/api/admin/portal-enroll", body, true);
                 callback.onComplete(true, message);
             } catch (Exception error) {
                 callback.onComplete(false, error.getMessage());
@@ -71,7 +84,7 @@ final class PortalApi {
                     body.put("challenge_id", challengeId);
                     body.put("proof", proofHex);
                     body.put("sig", signatureBase64);
-                    message = post(BuildConfig.PORTAL_API_BASE_URL, "/api/admin/portal-callback", body, true);
+                    message = post(portalBaseUrl(), "/api/admin/portal-callback", body, true);
                 }
                 callback.onComplete(true, message);
             } catch (Exception error) {

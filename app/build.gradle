@@ -17,8 +17,8 @@ android {
         applicationId 'org.pmoci.kskillauth'
         minSdk 23
         targetSdk 35
-        versionCode 4
-        versionName '0.4.0'
+        versionCode 5
+        versionName '0.5.0'
         buildConfigField 'String', 'AUTH_BASE_URL', '"https://otp.pm-oci.duckdns.org"'
         buildConfigField 'String', 'PORTAL_API_BASE_URL', "\"${portalApiBaseUrl}\""
         buildConfigField 'String', 'GATEWAY_BASE_URL', "\"${gatewayBaseUrl}\""
@@ -41,4 +41,6 @@ dependencies {
     implementation 'org.signal:argon2:13.1'                           // Argon2id KDF (native)
     implementation 'com.google.android.material:material:1.12.0'      // UI 컴포넌트 (Eye icon 등)
     implementation 'androidx.appcompat:appcompat:1.7.0'               // AppCompatActivity 지원
+    implementation 'androidx.biometric:biometric:1.1.0'              // 지문/패턴(기기 자격증명) 인증
+    implementation 'com.github.bumptech.glide:glide:4.16.0'          // 메인 화면 이미지 (GIF 재생 지원)
 }

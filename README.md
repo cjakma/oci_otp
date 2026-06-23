@@ -1,64 +1,55 @@
-# Hermes Agent gateway 이용한 인증용 Android 앱
+# Hermes Agent gateway 이용한 인증용 Android 앱 (ociotp)
 
-대상 기기: Samsung Galaxy S26, Samsung Galaxy S22 Ultra, LG V50 기준으로 구성한 Hermes/K-skill 인증 입력 앱입니다.
+대상 기기: Samsung Galaxy S26, Samsung Galaxy S22 Ultra, LG V50 기준으로 구성한 인증용 앱입니다.
+기존 WebView 방식에 더해, 보안이 강화된 **OTP redesign (FCM 푸시 기반 승인)** 기능이 추가되었습니다.
 
-## 구현 방식
+## 주요 기능 및 구현 방식
 
-이 앱은 별도의 Android 네이티브 UI를 만들지 않고, 기존 Mobile Web을 안전하게 WebView로 감싸서 재사용합니다.
-
+### 1. Legacy WebView 인증
+- 기존 Mobile Web을 WebView로 캡출화하여 재사용합니다.
 - 기본 인증서비스 주소: `https://otp.pm-oci.duckdns.org`
-- Mobile Web의 `/api/status` 1초 polling, enabled/disabled 입력 전환, `/api/submit` 제출 로직을 그대로 사용합니다.
-- 앱 이름: `pm-oci 인증용`
-- 패키지/applicationId: `org.pmoci.kskillauth`
-- `minSdk 23`, `targetSdk 35`, `compileSdk 35`
+- `/api/status` 폴링 및 `/api/submit` 로직을 그대로 사용합니다.
+
+### 2. OTP Redesign (FCM 기반 승인)
+- **FCM 푸시 알림**: 관리자 포털 로그인 시도 시 폰으로 푸시 알림이 발송됩니다.
+- **네이티브 승인 화면**: 사용자가 기억하는 `userKey`를 입력하여 기기 내에서 직접 승인 Proof를 생성하고 서명합니다.
+- **암호화 계약**:
+    - **KDF**: Argon2id (`org.signal:argon2`)를 사용하여 `userKey`로부터 암호화 키 추출.
+    - **Key Storage**: Android Keystore (StrongBox/TEE)의 비추출 EC P-256 키 사용.
+    - **Signature**: `SHA256withECDSA` 서명으로 소유 기반 인증 수행.
 
 ## 보안 설정
 
-- `android:usesCleartextTraffic="false"`
-- `network_security_config.xml`에서 `otp.pm-oci.duckdns.org` HTTPS만 허용
-- WebView SSL 오류는 우회하지 않고 차단
-- mixed content 차단
-- `file://`/content 접근 차단
-- `addJavascriptInterface` 미사용
-- `FLAG_SECURE`로 스크린샷/최근 앱 화면 캡처 방지
-- 앱 종료 시 WebView cache/history 정리
+- **통신 보안**: `android:usesCleartextTraffic="false"`, 전용 `network_security_config.xml`로 HTTPS 도메인 제한.
+- **화면 보호**: `FLAG_SECURE` 적용으로 스크린샷 및 최근 앱 화면 캡처 방지.
+- **데이터 보호**: `userKey` 및 추출된 암호화 키는 메모리에만 존재하며 저장되거나 전송되지 않음.
+- **WebView 보안**: Mixed content 차단, 파일 접근 차단, SSL 오류 우회 불가.
 
-## Android Studio에서 빌드
+## 앱 정보
+- **앱 이름**: `pm-oci 인증용`
+- **패키지**: `org.pmoci.kskillauth`
+- **버전**: `0.4.0` (versionCode 4)
+- **SDK**: `minSdk 23`, `targetSdk 35`, `compileSdk 35`
 
-1. Android Studio에서 이 폴더를 엽니다.
+## 빌드 및 설치
 
-   ```text
-   /home/ubuntu/agent-work/hermes/kskill-auth/android-auth-app
-   ```
+### 선행 조건
+- `app/google-services.json` 파일이 필요합니다.
+- `gradle.properties`에 `adminDeviceEnrollmentKey`가 설정되어 있어야 서버 등록이 가능합니다.
 
-2. Android Studio가 Gradle sync를 수행하게 둡니다.
-3. Debug APK:
-
+### Android Studio / CLI 빌드
+1. 프로젝트를 열고 Gradle Sync를 수행합니다.
+2. 빌드 실행:
    ```bash
    ./gradlew assembleDebug
    ```
-
-4. 산출물:
-
-   ```text
-   app/build/outputs/apk/debug/app-debug.apk
-   ```
-
-5. Galaxy S22 Ultra에 설치:
-
+3. 설치:
    ```bash
    adb install -r app/build/outputs/apk/debug/app-debug.apk
    ```
 
-## VSCode/CLI에서 빌드
-
-Android SDK와 JDK 17 이상이 설치되어 있고 `ANDROID_HOME` 또는 `ANDROID_SDK_ROOT`가 잡혀 있어야 합니다.
-
-```bash
-cd /path/to/android-auth-app
-# gradle wrapper가 없다면 Android Studio로 먼저 열거나, Gradle 설치 후 wrapper 생성
-gradle wrapper --gradle-version 8.7
-./gradlew assembleDebug
-```
-
-릴리즈 서명 APK가 필요하면 Android Studio의 **Build > Generate Signed Bundle / APK** 메뉴를 사용하거나, `signingConfigs`를 `app/build.gradle`에 추가하세요.
+## 최신 업데이트 (v0.4.0)
+- **UI 개선**: 등록(Enrollment) 화면에 Material Design 적용.
+- **편의성**: 비밀번호 가시성 토글(Eye Icon) 추가.
+- **유효성 검사**: `userKey` 일치 여부에 따른 등록 버튼 활성화 및 색상 변경 로직 추가.
+- **안정성**: `AppCompatActivity` 도입 및 테마 호환성 수정.

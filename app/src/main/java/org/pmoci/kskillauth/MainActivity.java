@@ -51,6 +51,45 @@ public class MainActivity extends AppCompatActivity {
         }
 
         setContentView(buildUi());
+
+        // The server now sends a `notification`+`data` FCM message so the request is still
+        // surfaced when the app is backgrounded/killed/battery-optimized (a data-only push is
+        // silently dropped on those states, notably on Samsung). In that case the system tray
+        // handles the notification and onMessageReceived does NOT fire, so tapping it launches
+        // THIS launcher activity with the challenge as intent extras. Forward it to the native
+        // approval (fingerprint → userKey) screen so the flow matches the foreground path.
+        routeAdminPortalRequest(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        routeAdminPortalRequest(intent);
+    }
+
+    private void routeAdminPortalRequest(Intent intent) {
+        if (intent == null || !"admin_portal_login".equals(intent.getStringExtra("type"))) {
+            return;
+        }
+
+        String challengeId = intent.getStringExtra("challenge_id");
+        String nonce = intent.getStringExtra("nonce");
+        if (TextUtils.isEmpty(challengeId) || TextUtils.isEmpty(nonce)) {
+            return;
+        }
+
+        Intent approval = new Intent(this, AdminPortalApprovalActivity.class);
+        approval.putExtra("challenge_id", challengeId);
+        approval.putExtra("nonce", nonce);
+        approval.putExtra("admin_id", intent.getStringExtra("admin_id"));
+        approval.putExtra("expires_at", intent.getStringExtra("expires_at"));
+        startActivity(approval);
+
+        // Consume the extras so a configuration change / relaunch does not re-open approval.
+        intent.removeExtra("type");
+        intent.removeExtra("challenge_id");
+        intent.removeExtra("nonce");
     }
 
     private FrameLayout buildUi() {

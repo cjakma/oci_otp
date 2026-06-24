@@ -28,7 +28,7 @@
 ## 앱 정보
 - **앱 이름**: `pm-oci 인증용`
 - **패키지**: `org.pmoci.kskillauth`
-- **버전**: `0.6.2` (versionCode 7)
+- **버전**: `0.6.3` (versionCode 8)
 - **SDK**: `minSdk 23`, `targetSdk 35`, `compileSdk 35`
 
 ## 빌드 및 설치
@@ -47,6 +47,14 @@
    ```bash
    adb install -r app/build/outputs/apk/debug/app-debug.apk
    ```
+
+## 최신 업데이트 (v0.6.3) — 승인 제출 "Unexpected end of stream" 수정
+Approve(proof 제출) 시 `Unexpected end of stream on com.android.okhttp...` 오류가 나던 문제를 수정했습니다(versionCode 8, versionName 0.6.3).
+
+- **원인**: `HttpURLConnection`(com.android.okhttp)은 **POST를 자동 재시도하지 않아**, 끊기거나 재사용된(stale) 연결이 그대로 전송 예외로 표면화됩니다. 게이트웨이·서버 콜백 로직 자체는 정상.
+- **앱 수정(`PortalApi`)**: 모든 POST에 대해 전송(IOException) 실패 시 **새 연결로 1회 재시도**(`post` → `postOnce` 분리). 실제 HTTP 오류 응답(401/404/409/5xx)은 재시도하지 않습니다. 또한 요청에 `Connection: close`를 지정해 프록시가 이미 닫은 연결을 재사용하지 않도록 합니다.
+- **서버(게이트웨이) 동반 수정**: 게이트웨이가 콜백 실패 시 무조건 `callback_failed`(502)로 뭉개던 것을, **콜백의 실제 status/에러 메시지를 그대로 폰에 전달**하도록 변경. 이제 proof 불일치/만료 등은 `Invalid authentication proof.` / `... not found or has expired.` 처럼 실제 사유가 표시됩니다.
+- **참고**: 로그인 challenge는 in-memory + **TTL 2분**입니다. 알림 수신 → 지문 → userKey 입력이 2분을 넘기면 만료될 수 있으니, 위 메시지가 보이면 웹에서 다시 `Send Request` 후 진행하세요.
 
 ## 최신 업데이트 (v0.6.2) — 실행 잠금 인증 + 설정 배경이미지 수정
 세 가지 동작을 수정했습니다(versionCode 7, versionName 0.6.2).

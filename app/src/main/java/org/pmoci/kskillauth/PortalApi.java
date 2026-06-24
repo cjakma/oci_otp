@@ -3,6 +3,7 @@ package org.pmoci.kskillauth;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -94,12 +95,31 @@ final class PortalApi {
     }
 
     private static String post(String baseUrl, String path, JSONObject body, boolean withDeviceKey) throws Exception {
+        // HttpURLConnection does NOT auto-retry POSTs, so a dropped or stale-pooled connection
+        // surfaces as "unexpected end of stream on com.android.okhttp...". Retry once on a
+        // transport (IOException) failure with a fresh connection. Real HTTP error responses
+        // (401/404/409/5xx) throw IllegalStateException and are intentionally NOT retried.
+        IOException lastTransportError = null;
+        for (int attempt = 0; attempt < 2; attempt++) {
+            try {
+                return postOnce(baseUrl, path, body, withDeviceKey);
+            } catch (IOException transportError) {
+                lastTransportError = transportError;
+            }
+        }
+        throw lastTransportError;
+    }
+
+    private static String postOnce(String baseUrl, String path, JSONObject body, boolean withDeviceKey) throws Exception {
         URL url = new URL(baseUrl + path);
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestMethod("POST");
         connection.setConnectTimeout(10000);
         connection.setReadTimeout(10000);
         connection.setDoOutput(true);
+        // Disable keep-alive pooling for these infrequent requests so a request never reuses a
+        // connection the proxy has already closed (a common source of "unexpected end of stream").
+        connection.setRequestProperty("Connection", "close");
         connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
         if (withDeviceKey) {
             connection.setRequestProperty("X-Admin-Device-Key", BuildConfig.ADMIN_DEVICE_ENROLLMENT_KEY);

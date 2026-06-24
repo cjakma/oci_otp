@@ -28,7 +28,7 @@
 ## 앱 정보
 - **앱 이름**: `pm-oci 인증용`
 - **패키지**: `org.pmoci.kskillauth`
-- **버전**: `0.4.0` (versionCode 4)
+- **버전**: `0.6.2` (versionCode 7)
 - **SDK**: `minSdk 23`, `targetSdk 35`, `compileSdk 35`
 
 ## 빌드 및 설치
@@ -47,6 +47,22 @@
    ```bash
    adb install -r app/build/outputs/apk/debug/app-debug.apk
    ```
+
+## 최신 업데이트 (v0.6.2) — 실행 잠금 인증 + 설정 배경이미지 수정
+세 가지 동작을 수정했습니다(versionCode 7, versionName 0.6.2).
+
+- **① userKey 미저장(최초 실행)**: `userKey 설정화면`을 **먼저** 표시하고, "등록" 버튼을 누를 때 기기 인증(지문/패턴)으로 등록을 완료합니다. (기존: 인증 먼저 → 화면 → 순서를 `입력 → 기기 인증 → 저장`으로 변경, `EnrollmentActivity`.)
+- **② userKey 저장됨(2회차 이상)**: 앱 실행 시 **기기 인증 앱 잠금**(`MainActivity.promptLaunchAuth`)을 적용합니다.
+  - 인증 성공 → 메인 화면 진입.
+  - 인증 실패 → 자동 재시도. **누적 3회 실패 시 메인 화면으로 전환**(이후 프롬프트 중단). 설정·FCM 승인은 각각 별도 기기 인증이 그대로 유지됩니다.
+  - **FCM 알림 탭**으로 진입한 경우는 승인 화면(`AdminPortalApprovalActivity`)이 자체 인증하므로 잠금을 생략(이중 인증 방지).
+- **③ 설정 배경이미지 동작 수정**: SAF `content://` URI는 앱 재시작 후 읽기 권한이 사라져 메인 화면에서 이미지를 다시 불러오지 못하던 문제를 수정했습니다.
+  - 선택한 이미지를 **앱 내부 저장소로 복사**(`getFilesDir()/main_bg_<timestamp>.img`)한 뒤 고정 경로로 로드(GIF 포함). 교체 시 고유 파일명으로 Glide 캐시 꼬임을 방지하고, 삭제 시 내부 파일도 함께 정리합니다.
+
+## 최신 업데이트 (v0.6.1) — FCM 수신 로직 에러수정
+- 서버가 `notification`+`data` FCM 메시지를 보내면서, 앱이 **백그라운드/종료/절전** 상태일 때 `onMessageReceived`가 호출되지 않아(시스템 트레이가 알림 처리) 알림 탭 시 인증 화면이 뜨지 않던 문제를 수정했습니다.
+- `MainActivity`가 알림 탭으로 전달된 `admin_portal_login` 인텐트 extras(`challenge_id/nonce/admin_id/expires_at`)를 감지해 `AdminPortalApprovalActivity`로 전달합니다(`routeAdminPortalRequest`, `onCreate` + `onNewIntent`).
+- `AndroidManifest`의 `MainActivity`에 `launchMode="singleTop"`을 추가해 실행 중 알림 탭 시 중복 인스턴스를 방지합니다.
 
 ## 최신 업데이트 (v0.6.0) — 지문인식 테스트
 - v0.5.0의 **지문/패턴 인증 + 설정 화면 + 서버 주소 설정 + 메인 이미지(GIF)** 기능을 실기기 테스트하기 위한 빌드(versionCode 6, versionName 0.6.0).

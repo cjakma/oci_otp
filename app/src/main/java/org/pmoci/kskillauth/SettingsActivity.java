@@ -27,6 +27,11 @@ import com.bumptech.glide.Glide;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+
 /**
  * Settings screen (entered from the main screen's top-right button).
  *
@@ -59,14 +64,22 @@ public class SettingsActivity extends AppCompatActivity {
             if (uri == null) {
                 return;
             }
-            try {
-                getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            } catch (Exception ignored) {
-                // Some providers don't support persistable grants; the URI may still work this session.
-            }
-            AppPrefs.setMainImageUri(this, uri.toString());
-            refreshImageState();
-            Toast.makeText(this, "메인 이미지를 저장했습니다.", Toast.LENGTH_SHORT).show();
+            // FIX: a SAF content:// URI loses its read grant after the app restarts, so the main
+            // screen could not reload it later (the background image "disappeared"). Copy the
+            // picked image into app-internal storage once and reference that stable file path.
+            Toast.makeText(this, "이미지 저장 중...", Toast.LENGTH_SHORT).show();
+            new Thread(() -> {
+                String storedPath = copyImageToInternalStorage(uri);
+                runOnUiThread(() -> {
+                    if (storedPath == null) {
+                        Toast.makeText(this, "이미지를 불러오지 못했습니다.", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    AppPrefs.setMainImageUri(this, storedPath);
+                    refreshImageState();
+                    Toast.makeText(this, "메인 이미지를 저장했습니다.", Toast.LENGTH_SHORT).show();
+                });
+            }).start();
         });
 
         // Gate: settings require device authentication to open.
@@ -215,6 +228,7 @@ public class SettingsActivity extends AppCompatActivity {
         imagePick.setOnClickListener(v -> imagePicker.launch(new String[]{"image/*"}));
         Button imageDelete = ghostButton("삭제");
         imageDelete.setOnClickListener(v -> {
+            deleteInternalImage(AppPrefs.mainImageUri(this));
             AppPrefs.clearMainImageUri(this);
             refreshImageState();
             Toast.makeText(this, "메인 이미지를 삭제했습니다.", Toast.LENGTH_SHORT).show();
@@ -265,6 +279,42 @@ public class SettingsActivity extends AppCompatActivity {
         }).start();
     }
 
+    private static final String MAIN_IMAGE_PREFIX = "main_bg_";
+
+    /**
+     * Copies the picked image into app-internal storage and returns its absolute path, or null on
+     * failure. A unique filename is used so a replaced image is never served from Glide's cache,
+     * and the previous internal copy is deleted.
+     */
+    private String copyImageToInternalStorage(Uri source) {
+        String previous = AppPrefs.mainImageUri(this);
+        File target = new File(getFilesDir(), MAIN_IMAGE_PREFIX + System.currentTimeMillis() + ".img");
+        try (InputStream in = getContentResolver().openInputStream(source);
+             OutputStream out = new FileOutputStream(target)) {
+            if (in == null) {
+                return null;
+            }
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                out.write(buffer, 0, read);
+            }
+            out.flush();
+        } catch (Exception e) {
+            target.delete();
+            return null;
+        }
+        deleteInternalImage(previous);
+        return target.getAbsolutePath();
+    }
+
+    /** Deletes a previously stored internal image copy (ignores legacy content:// URIs). */
+    private void deleteInternalImage(String path) {
+        if (!TextUtils.isEmpty(path) && path.startsWith(getFilesDir().getAbsolutePath())) {
+            new File(path).delete();
+        }
+    }
+
     private void refreshUserKeyState() {
         boolean enrolled = LocalCredentialStore.isEnrolled(this);
         userKeyStatus.setText(enrolled ? "상태: 등록됨" : "상태: 미등록");
@@ -288,7 +338,8 @@ public class SettingsActivity extends AppCompatActivity {
         } else {
             imageStatus.setText("현재: 사용자 이미지");
             try {
-                Glide.with(this).load(Uri.parse(uri)).into(imagePreview);
+                Object model = uri.startsWith("/") ? new File(uri) : Uri.parse(uri);
+                Glide.with(this).load(model).into(imagePreview);
             } catch (Exception ignored) {
                 imagePreview.setImageDrawable(null);
             }

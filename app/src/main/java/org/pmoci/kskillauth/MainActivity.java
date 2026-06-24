@@ -23,6 +23,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.bumptech.glide.Glide;
 import com.google.firebase.messaging.FirebaseMessaging;
 
+import java.io.File;
+
 /**
  * "pm-oci 인증용" main screen.
  *
@@ -31,8 +33,12 @@ import com.google.firebase.messaging.FirebaseMessaging;
  * (GIF supported) and a top-right Settings button gated by device authentication.
  */
 public class MainActivity extends AppCompatActivity {
+    private static final int MAX_LAUNCH_AUTH_FAILURES = 3;
+
     private ImageView background;
     private TextView placeholder;
+    // Cumulative device-auth failures for the on-launch app lock (per launch session).
+    private int launchAuthFailures = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,20 +51,32 @@ public class MainActivity extends AppCompatActivity {
 
         registerForAdminPortalRequests();
 
-        // First launch: device must enroll a userKey before it can approve logins.
-        if (!LocalCredentialStore.isEnrolled(this)) {
-            startActivity(new Intent(this, EnrollmentActivity.class));
-        }
-
         setContentView(buildUi());
 
-        // The server now sends a `notification`+`data` FCM message so the request is still
-        // surfaced when the app is backgrounded/killed/battery-optimized (a data-only push is
-        // silently dropped on those states, notably on Samsung). In that case the system tray
-        // handles the notification and onMessageReceived does NOT fire, so tapping it launches
-        // THIS launcher activity with the challenge as intent extras. Forward it to the native
-        // approval (fingerprint → userKey) screen so the flow matches the foreground path.
-        routeAdminPortalRequest(getIntent());
+        // If the app was opened by tapping the FCM login notification, jump straight to the
+        // native approval (which runs its own device-auth gate) and skip the launch lock below
+        // so the user is not double-prompted.
+        //
+        // (Background: the server sends a `notification`+`data` push so the request is still
+        // surfaced when the app is backgrounded/killed/battery-optimized — a data-only push is
+        // silently dropped there, notably on Samsung. In that state onMessageReceived does NOT
+        // fire; the system tray handles it and the tap launches THIS activity with the challenge
+        // as intent extras.)
+        if (routeAdminPortalRequest(getIntent())) {
+            return;
+        }
+
+        if (!LocalCredentialStore.isEnrolled(this)) {
+            // Req 1 / first run on this device: no stored userKey yet → go set one up.
+            // EnrollmentActivity shows the userKey screen first, then commits with device auth.
+            startActivity(new Intent(this, EnrollmentActivity.class));
+        } else {
+            // Req 2: a userKey already exists → lock the app behind device authentication on
+            // launch (fingerprint, else pattern/PIN). Retries on failure; after 3 cumulative
+            // failures it gives up and just shows the main screen (Settings / FCM approval stay
+            // independently gated).
+            promptLaunchAuth();
+        }
     }
 
     @Override
@@ -68,15 +86,16 @@ public class MainActivity extends AppCompatActivity {
         routeAdminPortalRequest(intent);
     }
 
-    private void routeAdminPortalRequest(Intent intent) {
+    /** @return true if the intent was an admin-portal login request and was routed to approval. */
+    private boolean routeAdminPortalRequest(Intent intent) {
         if (intent == null || !"admin_portal_login".equals(intent.getStringExtra("type"))) {
-            return;
+            return false;
         }
 
         String challengeId = intent.getStringExtra("challenge_id");
         String nonce = intent.getStringExtra("nonce");
         if (TextUtils.isEmpty(challengeId) || TextUtils.isEmpty(nonce)) {
-            return;
+            return false;
         }
 
         Intent approval = new Intent(this, AdminPortalApprovalActivity.class);
@@ -90,6 +109,41 @@ public class MainActivity extends AppCompatActivity {
         intent.removeExtra("type");
         intent.removeExtra("challenge_id");
         intent.removeExtra("nonce");
+        return true;
+    }
+
+    /**
+     * On-launch app lock (Req 2): a stored userKey exists, so require device authentication
+     * (fingerprint, else pattern/PIN) before the app is considered unlocked. Each failed attempt
+     * re-prompts; after {@link #MAX_LAUNCH_AUTH_FAILURES} cumulative failures it stops prompting
+     * and just shows the main screen — Settings and FCM approval remain independently gated.
+     */
+    private void promptLaunchAuth() {
+        DeviceAuth.authenticate(this, "앱 잠금 해제", "지문 또는 기기 잠금 방식으로 인증하세요.",
+                new DeviceAuth.Result() {
+                    @Override
+                    public void onSuccess() {
+                        launchAuthFailures = 0;
+                        // Unlocked; the main screen is already shown behind the prompt.
+                    }
+
+                    @Override
+                    public void onFailure(String message) {
+                        launchAuthFailures++;
+                        if (launchAuthFailures >= MAX_LAUNCH_AUTH_FAILURES) {
+                            launchAuthFailures = 0;
+                            Toast.makeText(MainActivity.this,
+                                    "인증 실패가 누적되어 메인 화면으로 이동합니다.", Toast.LENGTH_LONG).show();
+                            // Stay on the main screen per design; no further prompting.
+                            return;
+                        }
+                        Toast.makeText(MainActivity.this,
+                                "인증 실패 (" + launchAuthFailures + "/" + MAX_LAUNCH_AUTH_FAILURES + "). 다시 시도하세요.",
+                                Toast.LENGTH_SHORT).show();
+                        // Re-prompt after the previous prompt fully dismisses.
+                        background.postDelayed(MainActivity.this::promptLaunchAuth, 350);
+                    }
+                });
     }
 
     private FrameLayout buildUi() {
@@ -148,7 +202,10 @@ public class MainActivity extends AppCompatActivity {
         }
         placeholder.setVisibility(View.GONE);
         try {
-            Glide.with(this).load(Uri.parse(uri)).into(background);
+            // Normally an absolute path to an app-internal copy of the image (see
+            // SettingsActivity). Legacy installs may still hold a content:// URI string.
+            Object model = uri.startsWith("/") ? new File(uri) : Uri.parse(uri);
+            Glide.with(this).load(model).into(background);
         } catch (Exception e) {
             background.setImageDrawable(null);
             placeholder.setVisibility(View.VISIBLE);

@@ -17,8 +17,8 @@ android {
         applicationId 'org.pmoci.kskillauth'
         minSdk 23
         targetSdk 35
-        versionCode 8
-        versionName '0.6.3'
+        versionCode 9
+        versionName '0.7.0'
         buildConfigField 'String', 'AUTH_BASE_URL', '"https://otp.pm-oci.duckdns.org"'
         buildConfigField 'String', 'PORTAL_API_BASE_URL', "\"${portalApiBaseUrl}\""
         buildConfigField 'String', 'GATEWAY_BASE_URL', "\"${gatewayBaseUrl}\""

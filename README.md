@@ -28,7 +28,7 @@
 ## 앱 정보
 - **앱 이름**: `pm-oci 인증용`
 - **패키지**: `org.pmoci.kskillauth`
-- **버전**: `0.6.3` (versionCode 8)
+- **버전**: `0.7.0` (versionCode 9)
 - **SDK**: `minSdk 23`, `targetSdk 35`, `compileSdk 35`
 
 ## 빌드 및 설치
@@ -47,6 +47,14 @@
    ```bash
    adb install -r app/build/outputs/apk/debug/app-debug.apk
    ```
+
+## 최신 업데이트 (v0.7.0) — 안드로이드 디자인 가이드 적용 및 UI 개선
+전반적인 UI/UX를 다듬고 코드를 체계화했습니다(versionCode 9, versionName 0.7.0).
+
+- **디자인 가이드 적용**: Material Design 가이드를 준수하여 버튼, 입력 필드, 레이아웃 간격 등을 조정했습니다.
+- **UiKit 도입**: 공통적으로 사용되는 UI 컴포넌트 생성을 `UiKit.java`로 통합하여 코드 중복을 제거하고 일관된 디자인을 적용했습니다.
+- **로직 최적화**: 액티비티 간의 데이터 전달 및 초기화 로직을 개선하여 앱 안정성을 높였습니다.
+- **아이콘 및 스타일 수정**: 설정 버튼 아이콘(`ic_settings_24`)을 추가하고, 앱 전반의 테마와 색상(`colors.xml`)을 더욱 세련되게 다듬었습니다.
 
 ## 최신 업데이트 (v0.6.3) — 승인 제출 "Unexpected end of stream" 수정
 Approve(proof 제출) 시 `Unexpected end of stream on com.android.okhttp...` 오류가 나던 문제를 수정했습니다(versionCode 8, versionName 0.6.3).

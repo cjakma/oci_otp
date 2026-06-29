@@ -1,7 +1,6 @@
 package org.pmoci.kskillauth;
 
 import androidx.appcompat.app.AppCompatActivity;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.InputType;
@@ -9,12 +8,14 @@ import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.ViewGroup;
 import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
@@ -27,7 +28,7 @@ public class EnrollmentActivity extends AppCompatActivity {
 
     private EditText userKeyInput;
     private EditText confirmInput;
-    private Button enrollButton;
+    private MaterialButton enrollButton;
     private TextView statusText;
 
     @Override
@@ -37,6 +38,7 @@ public class EnrollmentActivity extends AppCompatActivity {
                 WindowManager.LayoutParams.FLAG_SECURE,
                 WindowManager.LayoutParams.FLAG_SECURE
         );
+        UiKit.applyLightSystemBars(this);
 
         // Req 1: show the userKey setup screen first; device authentication is required to
         // COMMIT the enrollment (on the 등록 button), so the order is 입력 → 기기 인증 → 저장.
@@ -44,54 +46,44 @@ public class EnrollmentActivity extends AppCompatActivity {
     }
 
     private void buildUi() {
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setBackgroundColor(UiKit.COLOR_BACKGROUND);
+
+        LinearLayout root = UiKit.screenRoot(this);
         root.setGravity(Gravity.CENTER_HORIZONTAL);
-        root.setPadding(dp(24), dp(32), dp(24), dp(24));
+        scroll.addView(root, new ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
 
-        TextView title = new TextView(this);
-        title.setText("인증앱 등록 (Enrollment)");
-        title.setTextSize(22);
-        title.setGravity(Gravity.CENTER);
-        root.addView(title, matchWrap());
+        root.addView(UiKit.title(this, "인증앱 등록"), UiKit.matchWrap());
+        TextView description = UiKit.subtitle(this,
+                "기억할 userKey를 설정합니다. userKey는 저장되거나 전송되지 않으며, 분실하면 서버 초기화 후 다시 등록해야 합니다.");
+        root.addView(description, UiKit.topMargin(this, 12));
 
-        TextView description = new TextView(this);
-        description.setText("기억할 userKey를 설정합니다. 이 값은 저장/전송되지 않으며, 분실 시 복구가 불가능하고 서버 초기화 후 재등록만 가능합니다.");
-        description.setTextSize(14);
-        description.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams descParams = matchWrap();
-        descParams.setMargins(0, dp(14), 0, 0);
-        root.addView(description, descParams);
+        MaterialCardView card = UiKit.card(this);
+        LinearLayout content = UiKit.cardContent(this);
+        card.addView(content);
+        root.addView(card, UiKit.topMargin(this, 24));
 
         TextInputLayout userKeyLayout = passwordLayout("userKey");
         userKeyInput = userKeyLayout.getEditText();
-        LinearLayout.LayoutParams p1 = matchWrap();
-        p1.setMargins(0, dp(20), 0, 0);
-        root.addView(userKeyLayout, p1);
+        content.addView(userKeyLayout, UiKit.matchWrap());
 
-        TextInputLayout confirmLayout = passwordLayout("userKey 확인");
+        TextInputLayout confirmLayout = passwordLayout("userKey 다시 입력");
         confirmInput = confirmLayout.getEditText();
-        LinearLayout.LayoutParams p2 = matchWrap();
-        p2.setMargins(0, dp(12), 0, 0);
-        root.addView(confirmLayout, p2);
+        content.addView(confirmLayout, UiKit.topMargin(this, 12));
 
-        statusText = new TextView(this);
-        statusText.setTextSize(14);
-        LinearLayout.LayoutParams sp = matchWrap();
-        sp.setMargins(0, dp(12), 0, 0);
-        root.addView(statusText, sp);
+        statusText = UiKit.statusText(this);
+        content.addView(statusText, UiKit.topMargin(this, 12));
 
-        enrollButton = new Button(this);
-        enrollButton.setText("등록");
-        enrollButton.setEnabled(false);
-        enrollButton.setBackgroundColor(Color.LTGRAY);
-        enrollButton.setTextColor(Color.DKGRAY);
+        enrollButton = UiKit.primaryButton(this, "등록");
+        UiKit.setButtonEnabled(enrollButton, false);
         enrollButton.setOnClickListener(view -> authenticateThenEnroll());
-        LinearLayout.LayoutParams bp = matchWrap();
-        bp.setMargins(0, dp(20), 0, 0);
-        root.addView(enrollButton, bp);
+        content.addView(enrollButton, UiKit.topMargin(this, 20));
 
-        setContentView(root);
+        setContentView(scroll);
 
         TextWatcher watcher = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -109,15 +101,8 @@ public class EnrollmentActivity extends AppCompatActivity {
         String p1 = userKeyInput.getText().toString();
         String p2 = confirmInput.getText().toString();
         boolean match = !p1.isEmpty() && p1.equals(p2);
-        
-        enrollButton.setEnabled(match);
-        if (match) {
-            enrollButton.setBackgroundColor(Color.parseColor("#101827"));
-            enrollButton.setTextColor(Color.WHITE);
-        } else {
-            enrollButton.setBackgroundColor(Color.LTGRAY);
-            enrollButton.setTextColor(Color.DKGRAY);
-        }
+
+        UiKit.setButtonEnabled(enrollButton, match);
     }
 
     private void authenticateThenEnroll() {
@@ -183,6 +168,7 @@ public class EnrollmentActivity extends AppCompatActivity {
         TextInputLayout layout = new TextInputLayout(this);
         layout.setHint(hint);
         layout.setEndIconMode(TextInputLayout.END_ICON_PASSWORD_TOGGLE);
+        UiKit.styleInput(layout);
         
         TextInputEditText input = new TextInputEditText(layout.getContext());
         input.setSingleLine(true);

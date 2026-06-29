@@ -12,9 +12,10 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -45,6 +46,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
 
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE);
+        UiKit.applyDarkSystemBars(this);
 
         // Apply the runtime server-address override (Settings → 서버 주소) before any API call.
         PortalApi.setBaseUrlOverride(AppPrefs.serverBaseUrl(this));
@@ -148,32 +150,59 @@ public class MainActivity extends AppCompatActivity {
 
     private FrameLayout buildUi() {
         FrameLayout root = new FrameLayout(this);
-        root.setBackgroundColor(Color.parseColor("#101827"));
+        root.setBackgroundColor(Color.parseColor("#0B1220"));
 
         background = new ImageView(this);
         background.setScaleType(ImageView.ScaleType.CENTER_CROP);
         root.addView(background, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
-        placeholder = new TextView(this);
-        placeholder.setText("pm-oci 인증");
-        placeholder.setTextColor(Color.parseColor("#94a3b8"));
-        placeholder.setTextSize(20);
-        FrameLayout.LayoutParams placeholderParams = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        placeholderParams.gravity = Gravity.CENTER;
-        root.addView(placeholder, placeholderParams);
+        View scrim = new View(this);
+        scrim.setBackgroundColor(Color.parseColor("#66000000"));
+        root.addView(scrim, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
-        Button settings = new Button(this);
-        settings.setText("⚙ 설정");
-        settings.setAllCaps(false);
-        settings.setTextColor(Color.WHITE);
-        settings.setBackgroundColor(Color.parseColor("#88000000"));
+        LinearLayout emptyState = new LinearLayout(this);
+        emptyState.setOrientation(LinearLayout.VERTICAL);
+        emptyState.setGravity(Gravity.CENTER);
+        emptyState.setPadding(dp(32), 0, dp(32), 0);
+
+        TextView appName = new TextView(this);
+        appName.setText("pm-oci 인증");
+        appName.setTextColor(Color.WHITE);
+        appName.setTextSize(28);
+        appName.setGravity(Gravity.CENTER);
+        appName.setIncludeFontPadding(false);
+        emptyState.addView(appName, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        placeholder = new TextView(this);
+        placeholder.setText("관리자 로그인 승인을 안전하게 처리합니다.");
+        placeholder.setTextColor(Color.parseColor("#D6DEE8"));
+        placeholder.setTextSize(15);
+        placeholder.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams placeholderParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        placeholderParams.setMargins(0, dp(12), 0, 0);
+        emptyState.addView(placeholder, placeholderParams);
+
+        FrameLayout.LayoutParams emptyParams = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        emptyParams.gravity = Gravity.CENTER;
+        root.addView(emptyState, emptyParams);
+
+        ImageButton settings = new ImageButton(this);
+        settings.setImageResource(R.drawable.ic_settings_24);
+        settings.setContentDescription("설정");
+        settings.setBackground(UiKit.rounded(Color.parseColor("#66000000"), dp(28),
+                Color.parseColor("#40FFFFFF"), dp(1)));
+        settings.setPadding(dp(12), dp(12), dp(12), dp(12));
+        settings.setScaleType(ImageView.ScaleType.CENTER);
         settings.setOnClickListener(v -> openSettings());
         FrameLayout.LayoutParams settingsParams = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                dp(56), dp(56));
         settingsParams.gravity = Gravity.TOP | Gravity.END;
-        settingsParams.setMargins(0, dp(16), dp(16), 0);
+        settingsParams.setMargins(0, dp(20), dp(20), 0);
         root.addView(settings, settingsParams);
 
         return root;
@@ -200,7 +229,7 @@ public class MainActivity extends AppCompatActivity {
             placeholder.setVisibility(View.VISIBLE);
             return;
         }
-        placeholder.setVisibility(View.GONE);
+        placeholder.setVisibility(View.VISIBLE);
         try {
             // Normally an absolute path to an app-internal copy of the image (see
             // SettingsActivity). Legacy installs may still hold a content:// URI string.

@@ -1,7 +1,5 @@
 package org.pmoci.kskillauth;
 
-import android.content.Intent;
-import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.InputType;
@@ -10,7 +8,6 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
@@ -23,6 +20,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.android.material.button.MaterialButton;
 import com.bumptech.glide.Glide;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
@@ -41,8 +39,8 @@ import java.io.OutputStream;
  *  3) Server address register / delete (runtime override of the compiled-in server).
  *  4) Main-screen image register / delete (gallery, GIF supported).
  *
- * Entering this screen — and therefore applying any change — requires passing the
- * device authentication gate.
+ * The main screen authenticates before starting this non-exported activity, so settings
+ * remain behind the same device authentication gate without prompting twice.
  */
 public class SettingsActivity extends AppCompatActivity {
     private static final int SALT_BYTES = 16;
@@ -58,6 +56,7 @@ public class SettingsActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE);
+        UiKit.applyLightSystemBars(this);
 
         // Must be registered before the activity is started (do it unconditionally, up front).
         imagePicker = registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
@@ -82,41 +81,29 @@ public class SettingsActivity extends AppCompatActivity {
             }).start();
         });
 
-        // Gate: settings require device authentication to open.
-        DeviceAuth.authenticate(this, "설정 잠금 해제", "지문 또는 기기 잠금 방식으로 인증하세요.", new DeviceAuth.Result() {
-            @Override
-            public void onSuccess() {
-                buildUi();
-            }
-
-            @Override
-            public void onFailure(String message) {
-                Toast.makeText(SettingsActivity.this, "인증 실패: " + message, Toast.LENGTH_LONG).show();
-                finish();
-            }
-        });
+        buildUi();
     }
 
     private void buildUi() {
         ScrollView scroll = new ScrollView(this);
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(24), dp(28), dp(24), dp(28));
+        scroll.setBackgroundColor(UiKit.COLOR_BACKGROUND);
+        LinearLayout root = UiKit.screenRoot(this);
         scroll.addView(root);
 
-        TextView title = new TextView(this);
-        title.setText("설정");
-        title.setTextSize(24);
-        root.addView(title, matchWrap());
+        root.addView(UiKit.title(this, "설정"), matchWrap());
+        root.addView(UiKit.subtitle(this, "인증 방식, userKey, 서버 주소, 메인 화면 이미지를 관리합니다."),
+                topMargin(12));
 
         // ── 1) Device auth method ──────────────────────────────────────────
         root.addView(sectionHeader("인증 방식"), topMargin(24));
         RadioGroup authGroup = new RadioGroup(this);
         RadioButton bioFirst = new RadioButton(this);
         bioFirst.setText("지문 우선 (없으면 기기 잠금/패턴)");
+        bioFirst.setMinHeight(dp(48));
         bioFirst.setId(View.generateViewId());
         RadioButton credentialOnly = new RadioButton(this);
         credentialOnly.setText("패턴 / 기기 잠금만");
+        credentialOnly.setMinHeight(dp(48));
         credentialOnly.setId(View.generateViewId());
         authGroup.addView(bioFirst);
         authGroup.addView(credentialOnly);
@@ -140,6 +127,7 @@ public class SettingsActivity extends AppCompatActivity {
         TextInputLayout keyLayout = new TextInputLayout(this);
         keyLayout.setHint("새 userKey 입력");
         keyLayout.setEndIconMode(TextInputLayout.END_ICON_PASSWORD_TOGGLE); // eye icon
+        UiKit.styleInput(keyLayout);
         final TextInputEditText keyInput = new TextInputEditText(keyLayout.getContext());
         keyInput.setSingleLine(true);
         keyInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
@@ -148,7 +136,7 @@ public class SettingsActivity extends AppCompatActivity {
 
         LinearLayout keyButtons = new LinearLayout(this);
         keyButtons.setOrientation(LinearLayout.HORIZONTAL);
-        Button keyRegister = primaryButton("등록 / 갱신");
+        MaterialButton keyRegister = primaryButton("등록 / 갱신");
         keyRegister.setOnClickListener(v -> {
             String userKey = keyInput.getText() == null ? "" : keyInput.getText().toString();
             if (TextUtils.isEmpty(userKey)) {
@@ -157,7 +145,7 @@ public class SettingsActivity extends AppCompatActivity {
             }
             registerUserKey(userKey, keyInput);
         });
-        Button keyDelete = ghostButton("삭제");
+        MaterialButton keyDelete = ghostButton("삭제");
         keyDelete.setOnClickListener(v -> {
             LocalCredentialStore.clear(this);
             refreshUserKeyState();
@@ -175,6 +163,7 @@ public class SettingsActivity extends AppCompatActivity {
 
         TextInputLayout serverLayout = new TextInputLayout(this);
         serverLayout.setHint("https://your-server.example.com");
+        UiKit.styleInput(serverLayout);
         final TextInputEditText serverInput = new TextInputEditText(serverLayout.getContext());
         serverInput.setSingleLine(true);
         serverInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
@@ -184,7 +173,7 @@ public class SettingsActivity extends AppCompatActivity {
 
         LinearLayout serverButtons = new LinearLayout(this);
         serverButtons.setOrientation(LinearLayout.HORIZONTAL);
-        Button serverRegister = primaryButton("등록 / 갱신");
+        MaterialButton serverRegister = primaryButton("등록 / 갱신");
         serverRegister.setOnClickListener(v -> {
             String url = serverInput.getText() == null ? "" : serverInput.getText().toString().trim();
             if (!url.startsWith("https://")) {
@@ -196,7 +185,7 @@ public class SettingsActivity extends AppCompatActivity {
             refreshServerState();
             Toast.makeText(this, "서버 주소를 저장했습니다.", Toast.LENGTH_SHORT).show();
         });
-        Button serverDelete = ghostButton("삭제 (기본값)");
+        MaterialButton serverDelete = ghostButton("삭제 (기본값)");
         serverDelete.setOnClickListener(v -> {
             AppPrefs.clearServerBaseUrl(this);
             PortalApi.setBaseUrlOverride(null);
@@ -214,29 +203,36 @@ public class SettingsActivity extends AppCompatActivity {
         imageStatus = new TextView(this);
         root.addView(imageStatus, topMargin(4));
 
+        LinearLayout imageControls = new LinearLayout(this);
+        imageControls.setOrientation(LinearLayout.HORIZONTAL);
+        imageControls.setGravity(Gravity.CENTER_VERTICAL);
+        imageControls.setBaselineAligned(false);
+
         imagePreview = new ImageView(this);
-        imagePreview.setAdjustViewBounds(true);
         imagePreview.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(180));
-        previewParams.setMargins(0, dp(8), 0, 0);
-        root.addView(imagePreview, previewParams);
+        imagePreview.setBackground(UiKit.rounded(UiKit.COLOR_SURFACE_VARIANT, dp(8), UiKit.COLOR_OUTLINE, dp(1)));
+        imagePreview.setPadding(dp(8), dp(8), dp(8), dp(8));
+        imageControls.addView(imagePreview, new LinearLayout.LayoutParams(0, dp(132), 1f));
 
         LinearLayout imageButtons = new LinearLayout(this);
-        imageButtons.setOrientation(LinearLayout.HORIZONTAL);
-        Button imagePick = primaryButton("갤러리에서 선택");
+        imageButtons.setOrientation(LinearLayout.VERTICAL);
+        imageButtons.setGravity(Gravity.CENTER_VERTICAL);
+        MaterialButton imagePick = primaryButton("갤러리에서 선택");
         imagePick.setOnClickListener(v -> imagePicker.launch(new String[]{"image/*"}));
-        Button imageDelete = ghostButton("삭제");
+        MaterialButton imageDelete = ghostButton("삭제");
         imageDelete.setOnClickListener(v -> {
             deleteInternalImage(AppPrefs.mainImageUri(this));
             AppPrefs.clearMainImageUri(this);
             refreshImageState();
             Toast.makeText(this, "메인 이미지를 삭제했습니다.", Toast.LENGTH_SHORT).show();
         });
-        imageButtons.addView(imagePick, weight1());
-        imageButtons.addView(spacer());
-        imageButtons.addView(imageDelete, weight1());
-        root.addView(imageButtons, topMargin(8));
+        imageButtons.addView(imagePick, matchWrap());
+        imageButtons.addView(verticalSpacer());
+        imageButtons.addView(imageDelete, matchWrap());
+        LinearLayout.LayoutParams buttonsParams = new LinearLayout.LayoutParams(dp(136), ViewGroup.LayoutParams.WRAP_CONTENT);
+        buttonsParams.setMargins(dp(12), 0, 0, 0);
+        imageControls.addView(imageButtons, buttonsParams);
+        root.addView(imageControls, topMargin(8));
 
         setContentView(scroll);
 
@@ -318,7 +314,7 @@ public class SettingsActivity extends AppCompatActivity {
     private void refreshUserKeyState() {
         boolean enrolled = LocalCredentialStore.isEnrolled(this);
         userKeyStatus.setText(enrolled ? "상태: 등록됨" : "상태: 미등록");
-        userKeyStatus.setTextColor(enrolled ? Color.parseColor("#1f8a4c") : Color.parseColor("#b4232c"));
+        userKeyStatus.setTextColor(enrolled ? UiKit.COLOR_SUCCESS : UiKit.COLOR_ERROR);
     }
 
     private void refreshServerState() {
@@ -348,34 +344,26 @@ public class SettingsActivity extends AppCompatActivity {
 
     // ── small UI helpers (programmatic, matching the app's existing style) ──
     private TextView sectionHeader(String text) {
-        TextView header = new TextView(this);
-        header.setText(text);
-        header.setTextSize(17);
-        header.setTextColor(Color.parseColor("#101827"));
-        return header;
+        return UiKit.sectionTitle(this, text);
     }
 
-    private Button primaryButton(String text) {
-        Button button = new Button(this);
-        button.setText(text);
-        button.setBackgroundColor(Color.parseColor("#101827"));
-        button.setTextColor(Color.WHITE);
-        button.setAllCaps(false);
-        return button;
+    private MaterialButton primaryButton(String text) {
+        return UiKit.primaryButton(this, text);
     }
 
-    private Button ghostButton(String text) {
-        Button button = new Button(this);
-        button.setText(text);
-        button.setBackgroundColor(Color.LTGRAY);
-        button.setTextColor(Color.DKGRAY);
-        button.setAllCaps(false);
-        return button;
+    private MaterialButton ghostButton(String text) {
+        return UiKit.dangerButton(this, text);
     }
 
     private View spacer() {
         View view = new View(this);
         view.setLayoutParams(new LinearLayout.LayoutParams(dp(12), 1));
+        return view;
+    }
+
+    private View verticalSpacer() {
+        View view = new View(this);
+        view.setLayoutParams(new LinearLayout.LayoutParams(1, dp(8)));
         return view;
     }
 

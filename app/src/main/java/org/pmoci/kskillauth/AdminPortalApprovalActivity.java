@@ -7,11 +7,16 @@ import android.text.InputType;
 import android.view.Gravity;
 import android.view.ViewGroup;
 import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 import java.nio.charset.StandardCharsets;
 
@@ -21,7 +26,7 @@ import java.nio.charset.StandardCharsets;
  */
 public class AdminPortalApprovalActivity extends AppCompatActivity {
     private EditText userKeyInput;
-    private Button approveButton;
+    private MaterialButton approveButton;
     private TextView statusText;
     private String challengeId;
     private String nonce;
@@ -33,6 +38,7 @@ public class AdminPortalApprovalActivity extends AppCompatActivity {
                 WindowManager.LayoutParams.FLAG_SECURE,
                 WindowManager.LayoutParams.FLAG_SECURE
         );
+        UiKit.applyLightSystemBars(this);
 
         challengeId = getIntent().getStringExtra("challenge_id");
         nonce = getIntent().getStringExtra("nonce");
@@ -69,64 +75,65 @@ public class AdminPortalApprovalActivity extends AppCompatActivity {
     }
 
     private void buildUi(String adminId, String expiresAt) {
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setBackgroundColor(UiKit.COLOR_BACKGROUND);
+
+        LinearLayout root = UiKit.screenRoot(this);
         root.setGravity(Gravity.CENTER_HORIZONTAL);
-        root.setPadding(dp(24), dp(32), dp(24), dp(24));
+        scroll.addView(root, new ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
 
-        TextView title = new TextView(this);
-        title.setText("Admin Terminal Authentication");
-        title.setTextSize(24);
-        title.setGravity(Gravity.CENTER);
-        root.addView(title, matchWrap());
+        root.addView(UiKit.title(this, "로그인 승인"), UiKit.matchWrap());
+        root.addView(UiKit.subtitle(this,
+                "대기 중인 관리자 터미널 로그인을 승인하려면 userKey를 입력하세요."),
+                UiKit.topMargin(this, 12));
 
-        TextView description = new TextView(this);
-        description.setText("Enter your userKey to approve the pending terminal login.");
-        description.setTextSize(16);
-        description.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams descriptionParams = matchWrap();
-        descriptionParams.setMargins(0, dp(14), 0, 0);
-        root.addView(description, descriptionParams);
+        MaterialCardView card = UiKit.card(this);
+        LinearLayout content = UiKit.cardContent(this);
+        card.addView(content);
+        root.addView(card, UiKit.topMargin(this, 24));
 
-        TextView requestInfo = new TextView(this);
-        requestInfo.setText("Admin ID: " + safe(adminId) + "\nExpires: " + safe(expiresAt));
-        requestInfo.setTextSize(14);
-        LinearLayout.LayoutParams infoParams = matchWrap();
-        infoParams.setMargins(0, dp(20), 0, 0);
-        root.addView(requestInfo, infoParams);
+        TextView requestTitle = UiKit.sectionTitle(this, "요청 정보");
+        content.addView(requestTitle, UiKit.matchWrap());
 
-        userKeyInput = new EditText(this);
-        userKeyInput.setHint("userKey");
-        userKeyInput.setSingleLine(true);
-        userKeyInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        LinearLayout.LayoutParams inputParams = matchWrap();
-        inputParams.setMargins(0, dp(20), 0, 0);
-        root.addView(userKeyInput, inputParams);
+        TextView requestInfo = UiKit.statusText(this);
+        requestInfo.setText("관리자 ID: " + safe(adminId) + "\n만료 시각: " + safe(expiresAt));
+        content.addView(requestInfo, UiKit.topMargin(this, 10));
 
-        statusText = new TextView(this);
-        statusText.setTextSize(14);
-        LinearLayout.LayoutParams statusParams = matchWrap();
-        statusParams.setMargins(0, dp(12), 0, 0);
-        root.addView(statusText, statusParams);
+        TextInputLayout userKeyLayout = new TextInputLayout(this);
+        userKeyLayout.setHint("userKey");
+        userKeyLayout.setEndIconMode(TextInputLayout.END_ICON_PASSWORD_TOGGLE);
+        UiKit.styleInput(userKeyLayout);
+        TextInputEditText input = new TextInputEditText(userKeyLayout.getContext());
+        input.setSingleLine(true);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        userKeyLayout.addView(input);
+        userKeyInput = input;
+        content.addView(userKeyLayout, UiKit.topMargin(this, 20));
+
+        statusText = UiKit.statusText(this);
+        content.addView(statusText, UiKit.topMargin(this, 12));
 
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
         actions.setGravity(Gravity.END);
-        LinearLayout.LayoutParams actionsParams = matchWrap();
-        actionsParams.setMargins(0, dp(20), 0, 0);
-        root.addView(actions, actionsParams);
+        content.addView(actions, UiKit.topMargin(this, 20));
 
-        Button cancelButton = new Button(this);
-        cancelButton.setText("Cancel");
+        MaterialButton cancelButton = UiKit.secondaryButton(this, "취소");
         cancelButton.setOnClickListener(view -> finish());
-        actions.addView(cancelButton);
+        actions.addView(cancelButton, UiKit.weight());
 
-        approveButton = new Button(this);
-        approveButton.setText("Approve");
+        TextView spacer = new TextView(this);
+        actions.addView(spacer, new LinearLayout.LayoutParams(dp(12), 1));
+
+        approveButton = UiKit.primaryButton(this, "승인");
         approveButton.setOnClickListener(view -> submitProof());
-        actions.addView(approveButton);
+        actions.addView(approveButton, UiKit.weight());
 
-        setContentView(root);
+        setContentView(scroll);
         userKeyInput.requestFocus();
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
     }
@@ -134,13 +141,13 @@ public class AdminPortalApprovalActivity extends AppCompatActivity {
     private void submitProof() {
         String userKey = userKeyInput.getText().toString();
         if (userKey.isEmpty()) {
-            userKeyInput.setError("userKey is required.");
+            userKeyInput.setError("userKey를 입력하세요.");
             return;
         }
 
-        approveButton.setEnabled(false);
+        UiKit.setButtonEnabled(approveButton, false);
         userKeyInput.setEnabled(false);
-        statusText.setText("Verifying...");
+        statusText.setText("확인 중...");
 
         new Thread(() -> {
             try {
@@ -166,14 +173,14 @@ public class AdminPortalApprovalActivity extends AppCompatActivity {
                         runOnUiThread(() -> {
                             userKeyInput.setText("");
                             if (success) {
-                                Toast.makeText(this, "Admin terminal login approved.", Toast.LENGTH_LONG).show();
+                                Toast.makeText(this, "관리자 터미널 로그인을 승인했습니다.", Toast.LENGTH_LONG).show();
                                 finish();
                                 return;
                             }
-                            reEnable(message == null ? "Authentication failed." : message);
+                            reEnable(message == null ? "인증에 실패했습니다." : message);
                         }));
             } catch (Exception error) {
-                finishWithError(error.getMessage() == null ? "Authentication failed." : error.getMessage());
+                finishWithError(error.getMessage() == null ? "인증에 실패했습니다." : error.getMessage());
             }
         }).start();
     }
@@ -183,7 +190,7 @@ public class AdminPortalApprovalActivity extends AppCompatActivity {
     }
 
     private void reEnable(String message) {
-        approveButton.setEnabled(true);
+        UiKit.setButtonEnabled(approveButton, true);
         userKeyInput.setEnabled(true);
         statusText.setText(message);
         userKeyInput.requestFocus();

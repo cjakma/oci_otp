@@ -1,4 +1,4 @@
-# Hermes Agent gateway 이용한 인증용 Android 앱 (ociotp)
+# Cloud Server 인증용 Android 앱
 
 대상 기기: Samsung Galaxy S26, Samsung Galaxy S22 Ultra, LG V50 기준으로 구성한 인증용 앱입니다.
 기존 WebView 방식에 더해, 보안이 강화된 **OTP redesign (FCM 푸시 기반 승인)** 기능이 추가되었습니다.
@@ -7,7 +7,7 @@
 
 ### 1. Legacy WebView 인증
 - 기존 Mobile Web을 WebView로 캡출화하여 재사용합니다.
-- 기본 인증서비스 주소: `https://otp.pm-oci.duckdns.org`
+- 기본 인증서비스 주소: `https://{App내에서 직접 입력}`
 - `/api/status` 폴링 및 `/api/submit` 로직을 그대로 사용합니다.
 
 ### 2. OTP Redesign (FCM 기반 승인)
@@ -26,7 +26,7 @@
 - **WebView 보안**: Mixed content 차단, 파일 접근 차단, SSL 오류 우회 불가.
 
 ## 앱 정보
-- **앱 이름**: `pm-oci 인증용`
+- **앱 이름**: `인증용 App`
 - **패키지**: `org.pmoci.kskillauth`
 - **버전**: `0.7.1` (versionCode 10)
 - **SDK**: `minSdk 23`, `targetSdk 35`, `compileSdk 35`

@@ -33,6 +33,10 @@
 
 ## 빌드 및 설치
 
+### 검증 기준 문서
+- 앱 구현·암호 계약·FCM 승인 흐름을 검증할 때는 [`ANDROID_DEV_AND_VERIFICATION_KOR.md`](ANDROID_DEV_AND_VERIFICATION_KOR.md)를 기준 문서로 사용하세요.
+- 다른 AI Agent가 코드 리뷰나 Android Studio 검증을 수행할 때도 위 문서의 체크리스트와 수동 테스트 시나리오를 우선 기준으로 삼아야 합니다.
+
 ### 선행 조건
 - `app/google-services.json` 파일이 필요합니다.
 - `gradle.properties`에 `adminDeviceEnrollmentKey`가 설정되어 있어야 서버 등록이 가능합니다.

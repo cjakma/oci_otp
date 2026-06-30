@@ -14,6 +14,7 @@
 0852 포트폴리오의 admin 로그인을 **ID/PW 대신 OTP**로 처리하는 2차기기 인증앱입니다.
 - 사용자가 기억하는 **userKey**(비밀)와 폰의 **DeviceKey**(Keystore, 소유)를 폰 안에서 조합해 인증.
 - 비밀번호/AES키/login-secret은 **폰을 떠나지 않음**. 서버는 검증값만 보관, 복호화 없음.
+- 현재 메인 화면은 WebView가 아니라 네이티브 대기 화면이며, FCM 알림 또는 시스템 트레이 알림 탭을 통해 승인 화면으로 진입합니다.
 
 ## 2. 인증 흐름 & 암호 계약 (★서버와 일치해야 함)
 
@@ -25,7 +26,7 @@ DEK         = Argon2id(userKey, salt, m=64MiB, t=3, p=1, len=32)
 loginSecret = randomBytes(32)
 ciphertext  = AES-256-GCM(DEK, loginSecret)  ->  저장형식 = iv(12) || ct(+16 tag)
 verifier    = SHA-256(loginSecret)  (소문자 hex 64자)
-로컬 저장(SharedPreferences): salt(b64), ciphertext(b64), keystore-wrapped loginSecret(b64)
+로컬 저장(SharedPreferences): salt(b64), ciphertext(b64), Android Keystore AES-GCM으로 감싼 loginSecret(b64)
 서버 전송  : POST /api/admin/portal-enroll { device_pubkey=base64(DER SPKI), verifier=hex }  + 헤더 X-Admin-Device-Key
 ```
 
@@ -55,14 +56,17 @@ sig 검증      = crypto.verify('sha256', `${cid}.${nonce}.${proof}`, device_pub
 |---|---|
 | `CryptoUtil.java` | Argon2id(`org.signal:argon2`), AES-256-GCM(iv∥ct), SHA-256 hex, base64/hex |
 | `DeviceKeyStore.java` | Keystore EC P-256 생성(StrongBox→TEE fallback), 공개키 base64(DER SPKI), `SHA256withECDSA` 서명 |
-| `LocalCredentialStore.java` | salt·ciphertext·Keystore 암호화 loginSecret을 SharedPreferences에 보관 |
+| `LocalCredentialStore.java` | salt·ciphertext·Android Keystore AES-GCM 암호화 loginSecret을 SharedPreferences에 보관 |
 | `EnrollmentActivity.java` | userKey(+확인) 입력 → 위 enrollment 수행, 실패 시 로컬 롤백 |
 | `AdminPortalApprovalActivity.java` | FCM 수신 후 기기 인증 → 저장된 loginSecret으로 proof/sig 생성·제출, 미등록 시 enrollment 유도 |
 | `PortalApi.java` | `registerFcmToken` / `enroll` / `submitProof`(Gateway 우선, fallback 서버 callback) |
-| `MyFirebaseMessagingService.java` | `admin_portal_login` 푸시 수신 → `challenge_id`,`nonce`,`admin_id`,`expires_at` 추출 → 알림 |
-| `MainActivity.java` | 기존 WebView(legacy passphrase) + FCM 토큰 등록 + 미등록 시 EnrollmentActivity |
-| `AndroidManifest.xml` | `EnrollmentActivity` 등록, FCM 서비스, `POST_NOTIFICATIONS`, cleartext 차단 |
-| `app/build.gradle` | `org.signal:argon2:13.1`, buildConfig(`GATEWAY_BASE_URL` 등), Java 17 |
+| `MyFirebaseMessagingService.java` | FCM 토큰 갱신 등록, `admin_portal_login` data 푸시 수신 → 알림 생성, 알림 채널 생성 |
+| `MainActivity.java` | 네이티브 메인 화면 + FCM 토큰 등록 + FCM 알림 탭 라우팅 + 미등록 시 EnrollmentActivity |
+| `SettingsActivity.java` | 인증 방식, userKey 등록/삭제, 서버 주소 override, 메인 이미지 관리 |
+| `AppPrefs.java` | 인증 방식, 서버 주소 override, 메인 이미지 경로 등 비밀이 아닌 앱 설정 저장 |
+| `UiKit.java` | 공통 Material UI 컴포넌트/색상/레이아웃 헬퍼 |
+| `AndroidManifest.xml` | 액티비티 등록, FCM 서비스, `POST_NOTIFICATIONS`, 기본 FCM 알림 채널, cleartext 차단 |
+| `app/build.gradle` | `org.signal:argon2:13.1`, Firebase Messaging, Biometric, Material, Glide, buildConfig, Java 17 |
 
 ## 4. 빌드 선행조건 (검증 전 반드시)
 - [ ] `app/google-services.json` 배치(현재 gitignore로 저장소에 없음 — Firebase `pm-oci-auth`에서 받기)
@@ -92,7 +96,8 @@ sig 검증      = crypto.verify('sha256', `${cid}.${nonce}.${proof}`, device_pub
 
 ### C. Argon2 / AES-GCM (`CryptoUtil`)
 - [ ] `aesGcmEncrypt`가 `iv(12)∥ciphertext` 반환, `aesGcmDecrypt`가 동일 포맷 파싱. GCM tag 128bit.
-- [ ] 등록/갱신 때 입력한 userKey로 생성한 loginSecret이 Keystore AES-GCM으로 저장되고, 승인 때 userKey 재입력 없이 복호화되는지.
+- [ ] 등록/갱신 때 입력한 userKey로 생성한 loginSecret이 Android Keystore AES-GCM으로 저장되고, 승인 때 userKey 재입력 없이 복호화되는지.
+- [ ] Keystore AES-GCM 암호화 시 앱이 IV를 직접 주입하지 않고 Provider가 생성한 IV를 저장하는지(`Caller-provided IV not permitted` 방지).
 - [ ] `sha256Hex`/`sha256HexOfBytes` 결과가 **소문자 hex** 인지(`Character.forDigit` 사용 → 소문자).
 
 ### D. proof/sig 포맷 (★최우선)
@@ -103,13 +108,18 @@ sig 검증      = crypto.verify('sha256', `${cid}.${nonce}.${proof}`, device_pub
 ### E. FCM / 액티비티
 - [ ] `MyFirebaseMessagingService`가 `type=="admin_portal_login"` && `nonce` 존재 시에만 알림.
 - [ ] Intent extra(`challenge_id`,`nonce`,`admin_id`,`expires_at`)가 `AdminPortalApprovalActivity`로 정확히 전달.
+- [ ] 백그라운드/종료 상태의 `notification`+`data` 메시지는 시스템 트레이 탭 → `MainActivity.routeAdminPortalRequest()` → `AdminPortalApprovalActivity`로 전달되는지.
+- [ ] 포그라운드 data 메시지는 `MyFirebaseMessagingService`가 알림을 만들고 탭 시 `AdminPortalApprovalActivity`로 직접 이동하는지.
+- [ ] Android 8+ 기본 FCM 알림 채널(`admin_portal_login`)이 manifest meta-data와 앱 시작 시 `ensureAdminPortalChannel()`로 생성되는지.
+- [ ] FCM 토큰 발급/갱신 시 `PortalApi.registerFcmToken()`이 호출되고, 등록 성공/실패 로그로 멀티 디바이스 문제를 추적할 수 있는지.
 - [ ] `FLAG_SECURE`(스크린샷 차단) 두 액티비티 적용.
 - [ ] Android 13+ `POST_NOTIFICATIONS` 런타임 권한 요청.
 
 ### F. 네트워크/보안
-- [ ] `network_security_config.xml`이 `otp`/`portfolio` 도메인 HTTPS만 허용, cleartext 차단.
+- [ ] `network_security_config.xml`이 cleartext(HTTP)를 차단하고, 사용자 지정 서버 주소를 위해 시스템 신뢰 HTTPS 호스트를 허용하는지.
 - [ ] Argon2/AES/Keystore 연산이 **백그라운드 스레드**에서 실행(UI 멈춤 없음) — 현재 `new Thread{}` 사용.
 - [ ] enrollment 실패 시 `LocalCredentialStore.clear()`로 로컬 롤백되는지.
+- [ ] `PortalApi`가 런타임 서버 주소 override(`AppPrefs.serverBaseUrl`)를 토큰 등록/enroll/callback에 반영하는지.
 
 ## 6. 서버 연동 계약 (검증 기준 엔드포인트)
 | 호출 | 메서드/경로 | 바디 | 인증헤더 |
@@ -123,8 +133,10 @@ sig 검증      = crypto.verify('sha256', `${cid}.${nonce}.${proof}`, device_pub
 1. 설치 후 첫 실행 → 미등록이므로 EnrollmentActivity 표시 → userKey 설정 → 서버 등록 200 확인.
 2. 웹에서 admin ID 입력(인증) → 폰에 FCM 알림 → 탭 → 지문/패턴 인증 → 자동 승인 → 웹이 `/admin` 진입.
 3. 기기 인증 취소/실패 → 승인 proof가 제출되지 않고 요청 화면 종료.
-4. challenge 만료(2분) 후 제출 → 서버 404/만료 처리.
-5. 같은 proof 재전송(replay) → nonce 1회성으로 거부 확인.
-6. 앱 데이터 삭제(키 분실) → 서버 reset 스크립트 후 재enrollment로 복구.
+4. Android 8+ 기기(LG V50 등)에서 알림 채널 `Admin terminal login`이 생성되고 켜져 있는지 확인.
+5. FCM 토큰 등록 실패 시 Logcat(`MainActivity`, `PortalApi`, `FCMService`, `FirebaseMessaging`)에 원인이 남는지 확인.
+6. challenge 만료(2분) 후 제출 → 서버 404/만료 처리.
+7. 같은 proof 재전송(replay) → nonce 1회성으로 거부 확인.
+8. 앱 데이터 삭제(키 분실) → 서버 reset 스크립트 후 재enrollment로 복구.
 
 > 검증 결과(특히 §5-D proof/sig 불일치 가능성)와 빌드 오류가 있으면, 해당 파일·라인과 함께 수정 제안 바랍니다.

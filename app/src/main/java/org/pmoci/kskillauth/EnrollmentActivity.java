@@ -138,7 +138,7 @@ public class EnrollmentActivity extends AppCompatActivity {
                 byte[] ivAndCiphertext = CryptoUtil.aesGcmEncrypt(dek, loginSecret);
                 String verifierHex = CryptoUtil.sha256HexOfBytes(loginSecret);
 
-                LocalCredentialStore.save(this, salt, ivAndCiphertext);
+                LocalCredentialStore.save(this, salt, ivAndCiphertext, loginSecret);
 
                 PortalApi.enroll(devicePublicKeyBase64, verifierHex, (success, message) ->
                         runOnUiThread(() -> {

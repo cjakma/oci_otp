@@ -4,7 +4,7 @@
 확인·검증하기 위한 자료입니다. 서버(0852, Node.js)와의 암호 계약이 **정확히 일치**하는지가 핵심입니다.
 
 - 패키지: `org.pmoci.kskillauth` · `minSdk 23` / `targetSdk 35` / `compileSdk 35`
-- 버전: `versionCode 4` / `versionName 0.4.0`
+- 버전: `versionCode 10` / `versionName 0.7.1`
 - 대상기기: Galaxy S26, Galaxy S22 Ultra, LG V50
 
 ---
@@ -25,15 +25,14 @@ DEK         = Argon2id(userKey, salt, m=64MiB, t=3, p=1, len=32)
 loginSecret = randomBytes(32)
 ciphertext  = AES-256-GCM(DEK, loginSecret)  ->  저장형식 = iv(12) || ct(+16 tag)
 verifier    = SHA-256(loginSecret)  (소문자 hex 64자)
-로컬 저장(SharedPreferences): salt(b64), ciphertext(b64)
+로컬 저장(SharedPreferences): salt(b64), ciphertext(b64), keystore-wrapped loginSecret(b64)
 서버 전송  : POST /api/admin/portal-enroll { device_pubkey=base64(DER SPKI), verifier=hex }  + 헤더 X-Admin-Device-Key
 ```
 
 ### Login (FCM 수신 후 · `AdminPortalApprovalActivity`)
 ```
-입력: userKey
-DEK         = Argon2id(userKey, salt[로컬], 동일 파라미터)
-loginSecret = AES-256-GCM-Decrypt(DEK, ciphertext[로컬])   # 틀린 userKey -> GCM 태그 실패 = "Invalid userKey"
+입력: 없음. 지문/패턴 등 기기 인증 통과 후 자동 진행
+loginSecret = Android Keystore AES-GCM으로 보호된 로컬 저장값 복호화
 verifier    = SHA-256(loginSecret) (hex)
 proof       = SHA-256( verifier + challengeId + nonce )  (UTF-8 문자열 연결, 결과 소문자 hex)
 signMessage = UTF-8( challengeId + "." + nonce + "." + proof )
@@ -56,9 +55,9 @@ sig 검증      = crypto.verify('sha256', `${cid}.${nonce}.${proof}`, device_pub
 |---|---|
 | `CryptoUtil.java` | Argon2id(`org.signal:argon2`), AES-256-GCM(iv∥ct), SHA-256 hex, base64/hex |
 | `DeviceKeyStore.java` | Keystore EC P-256 생성(StrongBox→TEE fallback), 공개키 base64(DER SPKI), `SHA256withECDSA` 서명 |
-| `LocalCredentialStore.java` | salt·ciphertext를 SharedPreferences에 보관(§보안: ciphertext·salt 미전송) |
+| `LocalCredentialStore.java` | salt·ciphertext·Keystore 암호화 loginSecret을 SharedPreferences에 보관 |
 | `EnrollmentActivity.java` | userKey(+확인) 입력 → 위 enrollment 수행, 실패 시 로컬 롤백 |
-| `AdminPortalApprovalActivity.java` | FCM 수신 후 userKey 입력 → proof/sig 생성·제출, 미등록 시 enrollment 유도 |
+| `AdminPortalApprovalActivity.java` | FCM 수신 후 기기 인증 → 저장된 loginSecret으로 proof/sig 생성·제출, 미등록 시 enrollment 유도 |
 | `PortalApi.java` | `registerFcmToken` / `enroll` / `submitProof`(Gateway 우선, fallback 서버 callback) |
 | `MyFirebaseMessagingService.java` | `admin_portal_login` 푸시 수신 → `challenge_id`,`nonce`,`admin_id`,`expires_at` 추출 → 알림 |
 | `MainActivity.java` | 기존 WebView(legacy passphrase) + FCM 토큰 등록 + 미등록 시 EnrollmentActivity |
@@ -93,7 +92,7 @@ sig 검증      = crypto.verify('sha256', `${cid}.${nonce}.${proof}`, device_pub
 
 ### C. Argon2 / AES-GCM (`CryptoUtil`)
 - [ ] `aesGcmEncrypt`가 `iv(12)∥ciphertext` 반환, `aesGcmDecrypt`가 동일 포맷 파싱. GCM tag 128bit.
-- [ ] 틀린 userKey → `aesGcmDecrypt`가 `AEADBadTagException` → "Invalid userKey" 처리되는지.
+- [ ] 등록/갱신 때 입력한 userKey로 생성한 loginSecret이 Keystore AES-GCM으로 저장되고, 승인 때 userKey 재입력 없이 복호화되는지.
 - [ ] `sha256Hex`/`sha256HexOfBytes` 결과가 **소문자 hex** 인지(`Character.forDigit` 사용 → 소문자).
 
 ### D. proof/sig 포맷 (★최우선)
@@ -122,8 +121,8 @@ sig 검증      = crypto.verify('sha256', `${cid}.${nonce}.${proof}`, device_pub
 
 ## 7. 수동 테스트 시나리오
 1. 설치 후 첫 실행 → 미등록이므로 EnrollmentActivity 표시 → userKey 설정 → 서버 등록 200 확인.
-2. 웹에서 admin ID 입력(인증) → 폰에 FCM 알림 → 탭 → userKey 입력 → 승인 → 웹이 `/admin` 진입.
-3. **틀린 userKey** 입력 → "Invalid userKey"(GCM 실패)로 거부, 서버 인증 안 됨.
+2. 웹에서 admin ID 입력(인증) → 폰에 FCM 알림 → 탭 → 지문/패턴 인증 → 자동 승인 → 웹이 `/admin` 진입.
+3. 기기 인증 취소/실패 → 승인 proof가 제출되지 않고 요청 화면 종료.
 4. challenge 만료(2분) 후 제출 → 서버 404/만료 처리.
 5. 같은 proof 재전송(replay) → nonce 1회성으로 거부 확인.
 6. 앱 데이터 삭제(키 분실) → 서버 reset 스크립트 후 재enrollment로 복구.

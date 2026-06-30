@@ -1,13 +1,13 @@
 package org.pmoci.kskillauth;
 
 import androidx.appcompat.app.AppCompatActivity;
+
 import android.content.Intent;
 import android.os.Bundle;
-import android.text.InputType;
 import android.view.Gravity;
+import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
-import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -15,18 +15,17 @@ import android.widget.Toast;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
-import com.google.android.material.textfield.TextInputEditText;
-import com.google.android.material.textfield.TextInputLayout;
 
 import java.nio.charset.StandardCharsets;
 
 /**
- * Native approval screen. The user enters the memorized userKey; the proof is derived and
- * signed entirely on-device and submitted through the Hermes Gateway. No password is sent.
+ * Native approval screen for FCM login requests.
+ *
+ * If enrollment exists, the FCM flow is: notification tap -> device auth -> proof submit.
+ * The userKey is only needed when registering or renewing enrollment.
  */
 public class AdminPortalApprovalActivity extends AppCompatActivity {
-    private EditText userKeyInput;
-    private MaterialButton approveButton;
+    private MaterialButton retryButton;
     private TextView statusText;
     private String challengeId;
     private String nonce;
@@ -51,19 +50,18 @@ public class AdminPortalApprovalActivity extends AppCompatActivity {
             return;
         }
 
-        // Cannot approve before the device is enrolled (no salt/ciphertext/verifier yet).
         if (!LocalCredentialStore.isEnrolled(this)) {
-            Toast.makeText(this, "먼저 인증앱 등록(enrollment)이 필요합니다.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "먼저 userKey 등록이 필요합니다.", Toast.LENGTH_LONG).show();
             startActivity(new Intent(this, EnrollmentActivity.class));
             finish();
             return;
         }
 
-        // Approving a login is gated by device authentication (fingerprint, else pattern/PIN).
-        DeviceAuth.authenticate(this, "로그인 승인 인증", "기기 인증으로 잠금을 해제하세요.", new DeviceAuth.Result() {
+        DeviceAuth.authenticate(this, "로그인 승인 인증", "기기 인증으로 요청을 승인합니다.", new DeviceAuth.Result() {
             @Override
             public void onSuccess() {
                 buildUi(adminId, expiresAt);
+                submitProof();
             }
 
             @Override
@@ -87,8 +85,7 @@ public class AdminPortalApprovalActivity extends AppCompatActivity {
         ));
 
         root.addView(UiKit.title(this, "로그인 승인"), UiKit.matchWrap());
-        root.addView(UiKit.subtitle(this,
-                "대기 중인 관리자 터미널 로그인을 승인하려면 userKey를 입력하세요."),
+        root.addView(UiKit.subtitle(this, "기기 인증이 완료되면 저장된 인증 정보로 승인 요청을 처리합니다."),
                 UiKit.topMargin(this, 12));
 
         MaterialCardView card = UiKit.card(this);
@@ -96,71 +93,45 @@ public class AdminPortalApprovalActivity extends AppCompatActivity {
         card.addView(content);
         root.addView(card, UiKit.topMargin(this, 24));
 
-        TextView requestTitle = UiKit.sectionTitle(this, "요청 정보");
-        content.addView(requestTitle, UiKit.matchWrap());
+        content.addView(UiKit.sectionTitle(this, "요청 정보"), UiKit.matchWrap());
 
         TextView requestInfo = UiKit.statusText(this);
         requestInfo.setText("관리자 ID: " + safe(adminId) + "\n만료 시각: " + safe(expiresAt));
         content.addView(requestInfo, UiKit.topMargin(this, 10));
 
-        TextInputLayout userKeyLayout = new TextInputLayout(this);
-        userKeyLayout.setHint("userKey");
-        userKeyLayout.setEndIconMode(TextInputLayout.END_ICON_PASSWORD_TOGGLE);
-        UiKit.styleInput(userKeyLayout);
-        TextInputEditText input = new TextInputEditText(userKeyLayout.getContext());
-        input.setSingleLine(true);
-        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        userKeyLayout.addView(input);
-        userKeyInput = input;
-        content.addView(userKeyLayout, UiKit.topMargin(this, 20));
-
         statusText = UiKit.statusText(this);
-        content.addView(statusText, UiKit.topMargin(this, 12));
+        statusText.setText("승인 대기 중...");
+        content.addView(statusText, UiKit.topMargin(this, 16));
 
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
         actions.setGravity(Gravity.END);
         content.addView(actions, UiKit.topMargin(this, 20));
 
-        MaterialButton cancelButton = UiKit.secondaryButton(this, "취소");
+        MaterialButton cancelButton = UiKit.secondaryButton(this, "닫기");
         cancelButton.setOnClickListener(view -> finish());
         actions.addView(cancelButton, UiKit.weight());
 
-        TextView spacer = new TextView(this);
+        View spacer = new View(this);
         actions.addView(spacer, new LinearLayout.LayoutParams(dp(12), 1));
 
-        approveButton = UiKit.primaryButton(this, "승인");
-        approveButton.setOnClickListener(view -> submitProof());
-        actions.addView(approveButton, UiKit.weight());
+        retryButton = UiKit.primaryButton(this, "다시 시도");
+        retryButton.setOnClickListener(view -> submitProof());
+        UiKit.setButtonEnabled(retryButton, false);
+        actions.addView(retryButton, UiKit.weight());
 
         setContentView(scroll);
-        userKeyInput.requestFocus();
-        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
     }
 
     private void submitProof() {
-        String userKey = userKeyInput.getText().toString();
-        if (userKey.isEmpty()) {
-            userKeyInput.setError("userKey를 입력하세요.");
-            return;
-        }
-
-        UiKit.setButtonEnabled(approveButton, false);
-        userKeyInput.setEnabled(false);
-        statusText.setText("확인 중...");
+        UiKit.setButtonEnabled(retryButton, false);
+        statusText.setText("승인 처리 중...");
 
         new Thread(() -> {
             try {
-                byte[] salt = LocalCredentialStore.getSalt(this);
-                byte[] ciphertext = LocalCredentialStore.getCiphertext(this);
-
-                byte[] dek = CryptoUtil.deriveKey(userKey, salt);
-                byte[] loginSecret;
-                try {
-                    loginSecret = CryptoUtil.aesGcmDecrypt(dek, ciphertext);
-                } catch (Exception badKey) {
-                    // AES-GCM tag mismatch -> wrong userKey.
-                    finishWithError("Invalid userKey.");
+                byte[] loginSecret = LocalCredentialStore.getLoginSecret(this);
+                if (loginSecret == null) {
+                    showFailure("저장된 인증 정보가 없습니다. userKey를 다시 등록하세요.");
                     return;
                 }
 
@@ -171,36 +142,24 @@ public class AdminPortalApprovalActivity extends AppCompatActivity {
 
                 PortalApi.submitProof(challengeId, proofHex, signatureBase64, (success, message) ->
                         runOnUiThread(() -> {
-                            userKeyInput.setText("");
                             if (success) {
-                                Toast.makeText(this, "관리자 터미널 로그인을 승인했습니다.", Toast.LENGTH_LONG).show();
+                                Toast.makeText(this, "관리자 로그인을 승인했습니다.", Toast.LENGTH_LONG).show();
                                 finish();
                                 return;
                             }
-                            reEnable(message == null ? "인증에 실패했습니다." : message);
+                            showFailure(message == null ? "인증에 실패했습니다." : message);
                         }));
             } catch (Exception error) {
-                finishWithError(error.getMessage() == null ? "인증에 실패했습니다." : error.getMessage());
+                showFailure(error.getMessage() == null ? "인증에 실패했습니다." : error.getMessage());
             }
         }).start();
     }
 
-    private void finishWithError(String message) {
-        runOnUiThread(() -> reEnable(message));
-    }
-
-    private void reEnable(String message) {
-        UiKit.setButtonEnabled(approveButton, true);
-        userKeyInput.setEnabled(true);
-        statusText.setText(message);
-        userKeyInput.requestFocus();
-    }
-
-    private LinearLayout.LayoutParams matchWrap() {
-        return new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
+    private void showFailure(String message) {
+        runOnUiThread(() -> {
+            statusText.setText(message);
+            UiKit.setButtonEnabled(retryButton, true);
+        });
     }
 
     private int dp(int value) {

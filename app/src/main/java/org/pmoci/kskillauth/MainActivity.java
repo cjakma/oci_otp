@@ -8,6 +8,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -34,6 +35,7 @@ import java.io.File;
  * (GIF supported) and a top-right Settings button gated by device authentication.
  */
 public class MainActivity extends AppCompatActivity {
+    private static final String TAG = "MainActivity";
     private static final int MAX_LAUNCH_AUTH_FAILURES = 3;
 
     private ImageView background;
@@ -69,11 +71,11 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if (!LocalCredentialStore.isEnrolled(this)) {
-            // Req 1 / first run on this device: no stored userKey yet → go set one up.
+            // Req 1 / first run on this device: no stored enrollment yet -> go set one up.
             // EnrollmentActivity shows the userKey screen first, then commits with device auth.
             startActivity(new Intent(this, EnrollmentActivity.class));
         } else {
-            // Req 2: a userKey already exists → lock the app behind device authentication on
+            // Req 2: enrollment exists -> lock the app behind device authentication on
             // launch (fingerprint, else pattern/PIN). Retries on failure; after 3 cumulative
             // failures it gives up and just shows the main screen (Settings / FCM approval stay
             // independently gated).
@@ -115,7 +117,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * On-launch app lock (Req 2): a stored userKey exists, so require device authentication
+     * On-launch app lock (Req 2): enrollment exists, so require device authentication
      * (fingerprint, else pattern/PIN) before the app is considered unlocked. Each failed attempt
      * re-prompts; after {@link #MAX_LAUNCH_AUTH_FAILURES} cumulative failures it stops prompting
      * and just shows the main screen — Settings and FCM approval remain independently gated.
@@ -242,13 +244,20 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void registerForAdminPortalRequests() {
+        MyFirebaseMessagingService.ensureAdminPortalChannel(this);
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
                 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1001);
         }
 
         FirebaseMessaging.getInstance().getToken()
-                .addOnSuccessListener(PortalApi::registerFcmToken);
+                .addOnSuccessListener(token -> {
+                    Log.i(TAG, "FCM token acquired; registering with portal.");
+                    PortalApi.registerFcmToken(token);
+                })
+                .addOnFailureListener(error ->
+                        Log.e(TAG, "Failed to acquire FCM token.", error));
     }
 
     @Override

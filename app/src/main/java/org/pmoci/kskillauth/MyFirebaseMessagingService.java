@@ -34,11 +34,37 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         }
 
         String challengeId = remoteMessage.getData().get("challenge_id");
+        String status = remoteMessage.getData().get("status");
+        if ("approved".equals(status) || "authenticated".equals(status)) {
+            if (challengeId == null || challengeId.trim().isEmpty()) {
+                return;
+            }
+            AuthRequestHistoryStore.recordApproved(
+                    this,
+                    challengeId,
+                    remoteMessage.getData().get("admin_id"),
+                    remoteMessage.getData().get("approved_at")
+            );
+            showAdminPortalApprovedNotification(
+                    challengeId,
+                    remoteMessage.getData().get("admin_id"),
+                    remoteMessage.getData().get("approved_at")
+            );
+            return;
+        }
+
         String nonce = remoteMessage.getData().get("nonce");
         if (challengeId == null || challengeId.trim().isEmpty()
                 || nonce == null || nonce.trim().isEmpty()) {
             return;
         }
+
+        AuthRequestHistoryStore.recordPending(
+                this,
+                challengeId,
+                remoteMessage.getData().get("admin_id"),
+                remoteMessage.getData().get("expires_at")
+        );
 
         showAdminPortalNotification(
                 challengeId,
@@ -84,6 +110,45 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                 .setPriority(Notification.PRIORITY_HIGH)
                 .build();
 
+        manager.notify(challengeId.hashCode(), notification);
+    }
+
+    private void showAdminPortalApprovedNotification(String challengeId, String adminId, String approvedAt) {
+        NotificationManager manager = getSystemService(NotificationManager.class);
+        if (manager == null) {
+            return;
+        }
+
+        ensureAdminPortalChannel(this);
+
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this,
+                (challengeId + ":approved").hashCode(),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        Notification.Builder builder = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                ? new Notification.Builder(this, CHANNEL_ID)
+                : new Notification.Builder(this);
+
+        String who = adminId == null || adminId.trim().isEmpty() ? "관리자 요청" : adminId;
+        String when = approvedAt == null || approvedAt.trim().isEmpty() ? "" : " · " + approvedAt;
+        Notification notification = builder
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle("Admin terminal login approved")
+                .setContentText(who + " 인증 완료" + when)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(false)
+                .setCategory(Notification.CATEGORY_STATUS)
+                .setPriority(Notification.PRIORITY_HIGH)
+                .build();
+
+        // Same notification id as the original request: A/C keep a visible audit trail, but the
+        // pending request is updated to "approved" instead of being silently removed.
         manager.notify(challengeId.hashCode(), notification);
     }
 

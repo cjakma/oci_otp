@@ -40,6 +40,7 @@ public class MainActivity extends AppCompatActivity {
 
     private ImageView background;
     private TextView placeholder;
+    private TextView historyText;
     // Cumulative device-auth failures for the on-launch app lock (per launch session).
     private int launchAuthFailures = 0;
 
@@ -97,10 +98,34 @@ public class MainActivity extends AppCompatActivity {
         }
 
         String challengeId = intent.getStringExtra("challenge_id");
+        if ("approved".equals(intent.getStringExtra("status"))
+                || "authenticated".equals(intent.getStringExtra("status"))) {
+            if (!TextUtils.isEmpty(challengeId)) {
+                AuthRequestHistoryStore.recordApproved(
+                        this,
+                        challengeId,
+                        intent.getStringExtra("admin_id"),
+                        intent.getStringExtra("approved_at"));
+                if (historyText != null) {
+                    historyText.setText(AuthRequestHistoryStore.describeRecent(this));
+                }
+            }
+            intent.removeExtra("type");
+            intent.removeExtra("challenge_id");
+            intent.removeExtra("status");
+            return false;
+        }
+
         String nonce = intent.getStringExtra("nonce");
         if (TextUtils.isEmpty(challengeId) || TextUtils.isEmpty(nonce)) {
             return false;
         }
+
+        AuthRequestHistoryStore.recordPending(
+                this,
+                challengeId,
+                intent.getStringExtra("admin_id"),
+                intent.getStringExtra("expires_at"));
 
         Intent approval = new Intent(this, AdminPortalApprovalActivity.class);
         approval.putExtra("challenge_id", challengeId);
@@ -207,6 +232,17 @@ public class MainActivity extends AppCompatActivity {
         settingsParams.setMargins(0, dp(20), dp(20), 0);
         root.addView(settings, settingsParams);
 
+        historyText = new TextView(this);
+        historyText.setTextColor(Color.WHITE);
+        historyText.setTextSize(13);
+        historyText.setPadding(dp(12), dp(10), dp(12), dp(10));
+        historyText.setBackgroundColor(Color.parseColor("#99000000"));
+        FrameLayout.LayoutParams historyParams = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        historyParams.gravity = Gravity.BOTTOM;
+        historyParams.setMargins(dp(16), 0, dp(16), dp(16));
+        root.addView(historyText, historyParams);
+
         return root;
     }
 
@@ -266,6 +302,9 @@ public class MainActivity extends AppCompatActivity {
         // Re-apply in case the image (or server) was changed in Settings.
         PortalApi.setBaseUrlOverride(AppPrefs.serverBaseUrl(this));
         applyMainImage();
+        if (historyText != null) {
+            historyText.setText(AuthRequestHistoryStore.describeRecent(this));
+        }
     }
 
     private int dp(int value) {

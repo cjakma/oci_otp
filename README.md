@@ -149,7 +149,7 @@ Fixed three behaviors (versionCode 7, versionName 0.6.2).
 ## 앱 정보
 - **앱 이름**: `인증용 App`
 - **패키지**: `org.pmoci.kskillauth`
-- **버전**: `0.7.2` (versionCode 10)
+- **버전**: `0.7.4` (versionCode 11)
 - **SDK**: `minSdk 23`, `targetSdk 35`, `compileSdk 35`
 
 ## 빌드 및 설치
@@ -172,6 +172,14 @@ Fixed three behaviors (versionCode 7, versionName 0.6.2).
    ```bash
    adb install -r app/build/outputs/apk/debug/app-debug.apk
    ```
+
+## 최신 업데이트 (v0.7.4) — 멀티 디바이스 인증 완료 이력 유지
+여러 디바이스(A/B/C)에 동시에 인증 요청이 도착한 뒤 B 디바이스에서 승인하더라도, A/C 디바이스가 기존 요청을 삭제하지 않고 **요청됨 → 인증됨** 상태를 확인할 수 있도록 보강했습니다(versionCode 11, versionName 0.7.4).
+
+- **앱 수신 로직(`MyFirebaseMessagingService`)**: 기존 `admin_portal_login` 요청(`status=pending`)은 로컬 이력에 `요청됨`으로 저장하고, 서버가 보내는 완료 FCM(`status=approved`/`authenticated`)은 같은 `challenge_id`의 알림을 `인증 완료`로 업데이트합니다. 알림 ID를 `challenge_id.hashCode()`로 유지해 pending 알림을 조용히 삭제하지 않고 상태만 바꿉니다.
+- **앱 메인 화면(`MainActivity`)**: 최근 인증 요청/완료 이력 5건을 하단 패널에 표시합니다. 앱이 백그라운드/종료 상태라 `onMessageReceived`가 호출되지 않고 시스템 알림 탭으로 들어오는 경우에도 pending/approved extras를 이력에 반영합니다.
+- **로컬 감사 이력(`AuthRequestHistoryStore`)**: 최근 30건을 앱 SharedPreferences에 보관합니다. 인증 자체와 분리된 best-effort 저장소라 이력 저장 실패가 승인 흐름을 막지 않습니다.
+- **서버 계약**: ociotp를 인증도구로 쓰는 서버는 승인 성공 후 모든 등록 FCM 토큰에 `type=admin_portal_login`, `challenge_id`, `status=approved`, `approved_at` 데이터 푸시를 best-effort로 보내야 합니다. 완료 FCM 실패는 이미 성공한 브라우저 인증을 롤백하지 않습니다.
 
 ## 최신 업데이트 (v0.7.1) — 오류수정
 FCM 승인 흐름과 기기별 알림 수신 문제를 보완했습니다(versionCode 10, versionName 0.7.1).

@@ -3,7 +3,7 @@ plugins {
     id 'com.google.gms.google-services'
 }
 
-def portalApiBaseUrl = project.findProperty('portalApiBaseUrl') ?: 'https://portfolio.pm-oci.duckdns.org'
+def portalApiBaseUrl = project.findProperty('portalApiBaseUrl') ?: ''
 def adminDeviceEnrollmentKey = project.findProperty('adminDeviceEnrollmentKey') ?: System.getenv('ADMIN_PORTAL_DEVICE_ENROLLMENT_KEY') ?: ''
 // OTP redesign: the Hermes Gateway the phone submits its proof to (empty -> post the proof
 // directly to the 0852 server's /api/admin/portal-callback using the device enrollment key).
@@ -17,8 +17,8 @@ android {
         applicationId 'org.pmoci.kskillauth'
         minSdk 23
         targetSdk 35
-        versionCode 12
-        versionName '0.7.5'
+        versionCode 13
+        versionName '0.7.6'
         buildConfigField 'String', 'AUTH_BASE_URL', '"https://otp.pm-oci.duckdns.org"'
         buildConfigField 'String', 'PORTAL_API_BASE_URL', "\"${portalApiBaseUrl}\""
         buildConfigField 'String', 'GATEWAY_BASE_URL', "\"${gatewayBaseUrl}\""

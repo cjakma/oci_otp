@@ -208,7 +208,7 @@ public class MainActivity extends AppCompatActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         placeholder = new TextView(this);
-        placeholder.setText("관리자 로그인 승인을 안전하게 처리합니다.");
+        placeholder.setText("관리자 로그인 승인을 안전하게 처리합니다.\n앱 버전 " + BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")");
         placeholder.setTextColor(Color.parseColor("#D6DEE8"));
         placeholder.setTextSize(15);
         placeholder.setGravity(Gravity.CENTER);

@@ -74,11 +74,11 @@ final class AppPrefs {
     }
 
     static String accountId(Context context) {
-        return prefs(context).getString(KEY_ACCOUNT_ID, "AAAA");
+        return prefs(context).getString(KEY_ACCOUNT_ID, "");
     }
 
     static String accountLevel(Context context) {
-        return prefs(context).getString(KEY_ACCOUNT_LEVEL, ACCOUNT_LEVEL_ADMIN);
+        return prefs(context).getString(KEY_ACCOUNT_LEVEL, "");
     }
 
     static boolean isAdminAccount(Context context) {
@@ -86,15 +86,15 @@ final class AppPrefs {
     }
 
     static String deviceId(Context context) {
-        return prefs(context).getString(KEY_DEVICE_ID, "A");
+        return prefs(context).getString(KEY_DEVICE_ID, "");
     }
 
     static void setAccount(Context context, String accountId, String accountLevel, String deviceId) {
         String level = ACCOUNT_LEVEL_USER.equals(accountLevel) ? ACCOUNT_LEVEL_USER : ACCOUNT_LEVEL_ADMIN;
         prefs(context).edit()
-                .putString(KEY_ACCOUNT_ID, TextUtils.isEmpty(accountId) ? "AAAA" : accountId.trim())
+                .putString(KEY_ACCOUNT_ID, accountId == null ? "" : accountId.trim())
                 .putString(KEY_ACCOUNT_LEVEL, level)
-                .putString(KEY_DEVICE_ID, TextUtils.isEmpty(deviceId) ? "A" : deviceId.trim())
+                .putString(KEY_DEVICE_ID, deviceId == null ? "" : deviceId.trim())
                 .apply();
     }
 }

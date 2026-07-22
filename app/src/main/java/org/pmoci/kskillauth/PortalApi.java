@@ -47,6 +47,14 @@ final class PortalApi {
             Log.w(TAG, "Skipped FCM token registration: missing device enrollment key.");
             return;
         }
+        if (portalBaseUrl().trim().isEmpty()) {
+            Log.w(TAG, "Skipped FCM token registration: server URL is not configured.");
+            return;
+        }
+        if (AppPrefs.accountId(context).trim().isEmpty() || AppPrefs.deviceId(context).trim().isEmpty()) {
+            Log.w(TAG, "Skipped FCM token registration: account/device is not configured.");
+            return;
+        }
 
         new Thread(() -> {
             try {
@@ -148,6 +156,9 @@ final class PortalApi {
     }
 
     private static String postOnce(String baseUrl, String path, JSONObject body, boolean withDeviceKey) throws Exception {
+        if (baseUrl == null || baseUrl.trim().isEmpty()) {
+            throw new IllegalStateException("서버 주소가 설정되지 않았습니다.");
+        }
         URL url = new URL(baseUrl + path);
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestMethod("POST");

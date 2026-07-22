@@ -173,6 +173,15 @@ Fixed three behaviors (versionCode 7, versionName 0.6.2).
    adb install -r app/build/outputs/apk/debug/app-debug.apk
    ```
 
+## 최신 업데이트 (v0.7.6) — 설정 화면 표시/기본 서버주소 정리
+설정 화면에서 현재 반영 버전을 바로 확인할 수 있도록 앱 버전을 표시하고, 계정/기기/userKey/서버주소 표시 문구를 정리했습니다(versionCode 13, versionName 0.7.6).
+
+- **버전 표시**: 메인 화면과 설정 화면에 `BuildConfig.VERSION_NAME`/`VERSION_CODE`를 표시합니다.
+- **현재 계정 표시**: `현재: admin 또는 user / 기기명` 형태로 계정 등급과 기기명만 표시합니다. 등록값이 없으면 빈칸으로 둡니다.
+- **userKey 표시**: userKey 상태에서 `계정 AAAA / 기기 A` 문구를 제거하고 등록/미등록 상태만 표시합니다.
+- **서버 주소 기본값**: `PORTAL_API_BASE_URL` 컴파일 기본값을 빈값으로 변경했습니다. 서버 주소가 없으면 `현재: 미설정`으로 표시하고, FCM/enroll 요청은 명확히 실패/스킵합니다.
+- **Admin 단일성**: 계정 추가 UI에서 Admin 추가를 차단하고 User 추가만 허용합니다. 서버도 같은 도메인에 다른 Admin 계정을 추가하려 하면 `409`로 거부해야 합니다.
+
 ## 최신 업데이트 (v0.7.5) — 단일관리자+다중사용자 계정별 OCIOTP 인증
 서버의 `accounts[]` 구조에 맞춰 앱이 현재 계정/권한/기기 ID를 저장하고, 계정별 userKey·credential·인증 이력을 분리하도록 보강했습니다(versionCode 12, versionName 0.7.5).
 

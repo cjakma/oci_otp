@@ -31,7 +31,7 @@ In addition to the legacy WebView flow, it includes a hardened **OTP redesign us
 ## App Information
 - **App name**: `인증용 App`
 - **Package**: `org.pmoci.kskillauth`
-- **Version**: `0.7.6` (versionCode 13)
+- **Version**: `0.7.7` (versionCode 14)
 - **SDK**: `minSdk 23`, `targetSdk 35`, `compileSdk 35`
 
 ## Build and Install
@@ -60,6 +60,13 @@ In addition to the legacy WebView flow, it includes a hardened **OTP redesign us
 - Primary allowed/verified device set: **Galaxy S26**, **Galaxy S26 Ultra**, **Galaxy S22 Ultra**, **Galaxy A52s 5G**, **LG V50**.
 - The repository does not contain a Java/Manifest runtime model whitelist. Android installability is governed by `minSdk 23`, required permissions/features, APK signing, and any external distribution/device-catalog policy.
 - **Galaxy A52s 5G public-spec review**: Samsung's public page lists Android OS, Samsung Knox, on-screen fingerprint sensor, Google apps, 5G, and NFC. GSMArena lists Android 11 upgradeable to Android 14/One UI 6, Snapdragon 778G 5G, 4–8GB RAM, Wi-Fi, Bluetooth, NFC, and model family `SM-A528*`. Based on those specs, it satisfies this app's practical requirements: Android API above 23, Google/Firebase-capable Android environment, device credential/fingerprint authentication, Android Keystore, and network/FCM support, so it is included in the primary allowed-device set. Real-device APK install and FCM/enrollment/approval verification is still recommended.
+
+## Latest Update (v0.7.7) — First Enrollment Server Address Input
+The first userKey enrollment screen now asks for the server address before enrollment is submitted (versionCode 14, versionName 0.7.7).
+
+- **First-run server address setup**: `EnrollmentActivity` includes a required `https://...` server address field so first launch can register the userKey even when the compiled default server URL is intentionally empty.
+- **Persistence before enrollment**: The entered server address is saved to `AppPrefs` and applied to `PortalApi` immediately before the enrollment request.
+- **Validation**: The Register button is enabled only when the server address starts with `https://` and the two userKey fields match.
 
 ## Latest Update (v0.7.1) — Bug Fixes
 Improved the FCM approval flow and device-specific notification receiving behavior (versionCode 10, versionName 0.7.1).
@@ -155,7 +162,7 @@ Fixed three behaviors (versionCode 7, versionName 0.6.2).
 ## 앱 정보
 - **앱 이름**: `인증용 App`
 - **패키지**: `org.pmoci.kskillauth`
-- **버전**: `0.7.4` (versionCode 11)
+- **버전**: `0.7.7` (versionCode 14)
 - **SDK**: `minSdk 23`, `targetSdk 35`, `compileSdk 35`
 
 ## 빌드 및 설치
@@ -184,6 +191,13 @@ Fixed three behaviors (versionCode 7, versionName 0.6.2).
 - 1차 허용/검증 기기: **Galaxy S26**, **Galaxy S26 Ultra**, **Galaxy S22 Ultra**, **Galaxy A52s 5G**, **LG V50**.
 - 현재 저장소에는 Java/Manifest 수준의 런타임 모델 whitelist가 없습니다. Android 설치 가능 여부는 `minSdk 23`, 요구 권한/기능, APK 서명, 그리고 외부 배포 채널의 device catalog 정책에 의해 결정됩니다.
 - **Galaxy A52s 5G 공개 스펙 검토**: Samsung 공식 페이지는 Android OS, Samsung Knox, 온스크린 지문 센서, Google 앱, 5G, NFC를 명시합니다. GSMArena는 Android 11 출시 후 Android 14/One UI 6 업그레이드, Snapdragon 778G 5G, 4–8GB RAM, Wi-Fi/Bluetooth/NFC, `SM-A528*` 모델군을 명시합니다. 따라서 이 앱의 실질 요구사항인 Android API 23 이상, Google/Firebase 사용 가능 환경, 기기 잠금/지문 인증, Android Keystore, 네트워크/FCM 지원을 공개 스펙상 충족하므로 1차 허용 기기 목록에 포함했습니다. 실기기에서 설치 → FCM token 등록 → userKey enrollment → 로그인 승인까지 확인하는 것은 계속 권장합니다.
+
+## 최신 업데이트 (v0.7.7) — 최초 등록 서버 주소 입력 추가
+첫 userKey 등록 화면에서 서버 주소를 함께 입력한 뒤 등록 요청을 보내도록 수정했습니다(versionCode 14, versionName 0.7.7).
+
+- **첫 기동 서버 주소 설정**: 기본 서버 주소가 비어 있어도 최초 등록이 가능하도록 `EnrollmentActivity`에 필수 `https://...` 서버 주소 입력란을 추가했습니다.
+- **등록 전 저장/적용**: 등록 요청 직전에 입력한 서버 주소를 `AppPrefs`에 저장하고 `PortalApi` override에 적용합니다.
+- **입력 검증**: 서버 주소가 `https://`로 시작하고 userKey/확인 값이 일치할 때만 등록 버튼이 활성화됩니다.
 
 ## 최신 업데이트 (v0.7.6) — 설정 화면 표시/기본 서버주소 정리
 설정 화면에서 현재 반영 버전을 바로 확인할 수 있도록 앱 버전을 표시하고, 계정/기기/userKey/서버주소 표시 문구를 정리했습니다(versionCode 13, versionName 0.7.6).

@@ -4,7 +4,7 @@
 확인·검증하기 위한 자료입니다. 서버(0852, Node.js)와의 암호 계약이 **정확히 일치**하는지가 핵심입니다.
 
 - 패키지: `org.pmoci.kskillauth` · `minSdk 23` / `targetSdk 35` / `compileSdk 35`
-- 버전: `versionCode 13` / `versionName 0.7.6`
+- 버전: `versionCode 14` / `versionName 0.7.7`
 - 대상기기: Galaxy S26, Galaxy S26 Ultra, Galaxy S22 Ultra, Galaxy A52s 5G, LG V50
 - Galaxy A52s 5G 근거: `SM-A528*`, Android 11→14, 온스크린 지문 센서, Google/Firebase 사용 가능 Android 환경으로 공개 스펙상 앱 요구사항 충족
 
@@ -58,7 +58,7 @@ sig 검증      = crypto.verify('sha256', `${cid}.${nonce}.${proof}`, device_pub
 | `CryptoUtil.java` | Argon2id(`org.signal:argon2`), AES-256-GCM(iv∥ct), SHA-256 hex, base64/hex |
 | `DeviceKeyStore.java` | Keystore EC P-256 생성(StrongBox→TEE fallback), 공개키 base64(DER SPKI), `SHA256withECDSA` 서명 |
 | `LocalCredentialStore.java` | salt·ciphertext·Android Keystore AES-GCM 암호화 loginSecret을 SharedPreferences에 보관 |
-| `EnrollmentActivity.java` | userKey(+확인) 입력 → 위 enrollment 수행, 실패 시 로컬 롤백 |
+| `EnrollmentActivity.java` | 최초 서버 주소 + userKey(+확인) 입력 → 위 enrollment 수행, 실패 시 로컬 롤백 |
 | `AdminPortalApprovalActivity.java` | FCM 수신 후 기기 인증 → 저장된 loginSecret으로 proof/sig 생성·제출, 미등록 시 enrollment 유도 |
 | `PortalApi.java` | `registerFcmToken` / `enroll` / `submitProof`(Gateway 우선, fallback 서버 callback) |
 | `MyFirebaseMessagingService.java` | FCM 토큰 갱신 등록, `admin_portal_login` data 푸시 수신 → 알림 생성, 알림 채널 생성 |
@@ -131,7 +131,7 @@ sig 검증      = crypto.verify('sha256', `${cid}.${nonce}.${proof}`, device_pub
 | 제출(직접) | `POST {PORTAL}/api/admin/portal-callback` | `{challenge_id, proof, sig}` | `X-Admin-Device-Key` |
 
 ## 7. 수동 테스트 시나리오
-1. 설치 후 첫 실행 → 미등록이므로 EnrollmentActivity 표시 → userKey 설정 → 서버 등록 200 확인.
+1. 설치 후 첫 실행 → 미등록이므로 EnrollmentActivity 표시 → 서버 주소(`https://...`)와 userKey 설정 → 서버 등록 200 확인.
 2. 웹에서 admin ID 입력(인증) → 폰에 FCM 알림 → 탭 → 지문/패턴 인증 → 자동 승인 → 웹이 `/admin` 진입.
 3. 기기 인증 취소/실패 → 승인 proof가 제출되지 않고 요청 화면 종료.
 4. Android 8+ 기기(LG V50 등)에서 알림 채널 `Admin terminal login`이 생성되고 켜져 있는지 확인.

@@ -28,6 +28,7 @@ public class EnrollmentActivity extends AppCompatActivity {
 
     private EditText userKeyInput;
     private EditText confirmInput;
+    private EditText serverUrlInput;
     private MaterialButton enrollButton;
     private TextView statusText;
 
@@ -59,7 +60,7 @@ public class EnrollmentActivity extends AppCompatActivity {
 
         root.addView(UiKit.title(this, "인증앱 등록"), UiKit.matchWrap());
         TextView description = UiKit.subtitle(this,
-                "기억할 userKey를 설정합니다. userKey는 저장되거나 전송되지 않으며, 분실하면 서버 초기화 후 다시 등록해야 합니다.");
+                "첫 등록에 필요한 서버 주소와 userKey를 설정합니다. userKey는 저장되거나 전송되지 않으며, 분실하면 서버 초기화 후 다시 등록해야 합니다.");
         root.addView(description, UiKit.topMargin(this, 12));
 
         MaterialCardView card = UiKit.card(this);
@@ -67,9 +68,14 @@ public class EnrollmentActivity extends AppCompatActivity {
         card.addView(content);
         root.addView(card, UiKit.topMargin(this, 24));
 
+        TextInputLayout serverLayout = textLayout("서버 주소 (https://...)");
+        serverUrlInput = serverLayout.getEditText();
+        serverUrlInput.setText(AppPrefs.serverBaseUrl(this));
+        content.addView(serverLayout, UiKit.matchWrap());
+
         TextInputLayout userKeyLayout = passwordLayout("userKey");
         userKeyInput = userKeyLayout.getEditText();
-        content.addView(userKeyLayout, UiKit.matchWrap());
+        content.addView(userKeyLayout, UiKit.topMargin(this, 12));
 
         TextInputLayout confirmLayout = passwordLayout("userKey 다시 입력");
         confirmInput = confirmLayout.getEditText();
@@ -93,14 +99,17 @@ public class EnrollmentActivity extends AppCompatActivity {
                 updateButtonState();
             }
         };
+        serverUrlInput.addTextChangedListener(watcher);
         userKeyInput.addTextChangedListener(watcher);
         confirmInput.addTextChangedListener(watcher);
     }
 
     private void updateButtonState() {
+        String serverUrl = serverUrlInput.getText().toString().trim();
         String p1 = userKeyInput.getText().toString();
         String p2 = confirmInput.getText().toString();
-        boolean match = !p1.isEmpty() && p1.equals(p2);
+        boolean serverReady = serverUrl.startsWith("https://");
+        boolean match = serverReady && !p1.isEmpty() && p1.equals(p2);
 
         UiKit.setButtonEnabled(enrollButton, match);
     }
@@ -122,15 +131,25 @@ public class EnrollmentActivity extends AppCompatActivity {
     }
 
     private void enroll() {
+        String serverUrl = serverUrlInput.getText().toString().trim();
         String userKey = userKeyInput.getText().toString();
 
+        if (!serverUrl.startsWith("https://")) {
+            reEnable("https:// 로 시작하는 서버 주소를 입력하세요.");
+            return;
+        }
+
         enrollButton.setEnabled(false);
+        serverUrlInput.setEnabled(false);
         userKeyInput.setEnabled(false);
         confirmInput.setEnabled(false);
         statusText.setText("등록 중...");
 
         new Thread(() -> {
             try {
+                AppPrefs.setServerBaseUrl(this, serverUrl);
+                PortalApi.setBaseUrlOverride(serverUrl);
+
                 String devicePublicKeyBase64 = DeviceKeyStore.publicKeyBase64();
                 byte[] salt = CryptoUtil.randomBytes(SALT_BYTES);
                 byte[] dek = CryptoUtil.deriveKey(userKey, salt);
@@ -159,9 +178,23 @@ public class EnrollmentActivity extends AppCompatActivity {
 
     private void reEnable(String message) {
         updateButtonState();
+        serverUrlInput.setEnabled(true);
         userKeyInput.setEnabled(true);
         confirmInput.setEnabled(true);
         statusText.setText(message);
+    }
+
+    private TextInputLayout textLayout(String hint) {
+        TextInputLayout layout = new TextInputLayout(this);
+        layout.setHint(hint);
+        UiKit.styleInput(layout);
+
+        TextInputEditText input = new TextInputEditText(layout.getContext());
+        input.setSingleLine(true);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+
+        layout.addView(input);
+        return layout;
     }
 
     private TextInputLayout passwordLayout(String hint) {

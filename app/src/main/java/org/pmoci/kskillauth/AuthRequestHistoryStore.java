@@ -23,15 +23,23 @@ final class AuthRequestHistoryStore {
     }
 
     static void recordPending(Context context, String challengeId, String adminId, String expiresAt) {
-        upsert(context, challengeId, adminId, expiresAt, "pending", nowIso(), null);
+        recordPending(context, AppPrefs.accountId(context), challengeId, adminId, expiresAt);
+    }
+
+    static void recordPending(Context context, String accountId, String challengeId, String adminId, String expiresAt) {
+        upsert(context, accountId, challengeId, adminId, expiresAt, "pending", nowIso(), null);
     }
 
     static void recordApproved(Context context, String challengeId, String adminId, String approvedAt) {
-        upsert(context, challengeId, adminId, null, "approved", null,
+        recordApproved(context, AppPrefs.accountId(context), challengeId, adminId, approvedAt);
+    }
+
+    static void recordApproved(Context context, String accountId, String challengeId, String adminId, String approvedAt) {
+        upsert(context, accountId, challengeId, adminId, null, "approved", null,
                 (approvedAt == null || approvedAt.trim().isEmpty()) ? nowIso() : approvedAt);
     }
 
-    private static void upsert(Context context, String challengeId, String adminId, String expiresAt,
+    private static void upsert(Context context, String accountId, String challengeId, String adminId, String expiresAt,
                                String status, String requestedAt, String approvedAt) {
         if (challengeId == null || challengeId.trim().isEmpty()) return;
         try {
@@ -47,6 +55,8 @@ final class AuthRequestHistoryStore {
             }
             if (existing == null) existing = new JSONObject();
             existing.put("challenge_id", challengeId);
+            String account = accountId == null || accountId.trim().isEmpty() ? AppPrefs.accountId(context) : accountId.trim();
+            existing.put("account_id", account);
             if (adminId != null && !adminId.trim().isEmpty()) existing.put("admin_id", adminId);
             if (expiresAt != null && !expiresAt.trim().isEmpty()) existing.put("expires_at", expiresAt);
             if (requestedAt != null && !requestedAt.trim().isEmpty() && !existing.has("requested_at")) {
@@ -88,11 +98,13 @@ final class AuthRequestHistoryStore {
             String cid = obj.optString("challenge_id", "");
             String shortId = cid.length() > 8 ? cid.substring(0, 8) : cid;
             String status = "approved".equals(obj.optString("status")) ? "인증됨" : "요청됨";
+            String account = obj.optString("account_id", "");
             String admin = obj.optString("admin_id", "");
             String time = "approved".equals(obj.optString("status"))
                     ? obj.optString("approved_at", obj.optString("requested_at", ""))
                     : obj.optString("requested_at", "");
             out.append("• ").append(status).append(" #").append(shortId);
+            if (!account.isEmpty()) out.append(" · 계정 ").append(account);
             if (!admin.isEmpty()) out.append(" · ").append(admin);
             if (!time.isEmpty()) out.append(" · ").append(time);
             if (i < count - 1) out.append('\n');

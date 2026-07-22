@@ -21,6 +21,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.button.MaterialButton;
+import com.google.firebase.messaging.FirebaseMessaging;
 import com.bumptech.glide.Glide;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
@@ -91,8 +92,89 @@ public class SettingsActivity extends AppCompatActivity {
         scroll.addView(root);
 
         root.addView(UiKit.title(this, "설정"), matchWrap());
-        root.addView(UiKit.subtitle(this, "인증 방식, userKey, 서버 주소, 메인 화면 이미지를 관리합니다."),
+        root.addView(UiKit.subtitle(this, "인증 방식, 계정, userKey, 서버 주소, 메인 화면 이미지를 관리합니다."),
                 topMargin(12));
+
+        // ── 0) Account/device ───────────────────────────────────────────────
+        root.addView(sectionHeader("계정 / 기기"), topMargin(24));
+        TextView accountStatus = new TextView(this);
+        accountStatus.setText("현재: " + AppPrefs.accountId(this) + " (" + AppPrefs.accountLevel(this) + ") / 기기 " + AppPrefs.deviceId(this));
+        root.addView(accountStatus, topMargin(4));
+
+        TextInputLayout accountLayout = new TextInputLayout(this);
+        accountLayout.setHint("계정 ID (예: AAAA 또는 BBBB)");
+        UiKit.styleInput(accountLayout);
+        final TextInputEditText accountInput = new TextInputEditText(accountLayout.getContext());
+        accountInput.setSingleLine(true);
+        accountInput.setInputType(InputType.TYPE_CLASS_TEXT);
+        accountInput.setText(AppPrefs.accountId(this));
+        accountLayout.addView(accountInput);
+        root.addView(accountLayout, topMargin(8));
+
+        TextInputLayout deviceLayout = new TextInputLayout(this);
+        deviceLayout.setHint("기기 ID (예: A, B, C, D)");
+        UiKit.styleInput(deviceLayout);
+        final TextInputEditText deviceInput = new TextInputEditText(deviceLayout.getContext());
+        deviceInput.setSingleLine(true);
+        deviceInput.setInputType(InputType.TYPE_CLASS_TEXT);
+        deviceInput.setText(AppPrefs.deviceId(this));
+        deviceLayout.addView(deviceInput);
+        root.addView(deviceLayout, topMargin(8));
+
+        RadioGroup accountLevelGroup = new RadioGroup(this);
+        accountLevelGroup.setOrientation(RadioGroup.HORIZONTAL);
+        RadioButton accountAdmin = new RadioButton(this);
+        accountAdmin.setText("Admin");
+        accountAdmin.setId(View.generateViewId());
+        RadioButton accountUser = new RadioButton(this);
+        accountUser.setText("User");
+        accountUser.setId(View.generateViewId());
+        accountLevelGroup.addView(accountAdmin);
+        accountLevelGroup.addView(accountUser);
+        if (AppPrefs.ACCOUNT_LEVEL_USER.equals(AppPrefs.accountLevel(this))) accountUser.setChecked(true);
+        else accountAdmin.setChecked(true);
+        root.addView(accountLevelGroup, topMargin(8));
+
+        LinearLayout accountButtons = new LinearLayout(this);
+        accountButtons.setOrientation(LinearLayout.HORIZONTAL);
+        MaterialButton accountSave = primaryButton("현재 계정 저장");
+        accountSave.setOnClickListener(v -> {
+            String accountId = accountInput.getText() == null ? "" : accountInput.getText().toString().trim();
+            String deviceId = deviceInput.getText() == null ? "" : deviceInput.getText().toString().trim();
+            String level = accountLevelGroup.getCheckedRadioButtonId() == accountUser.getId()
+                    ? AppPrefs.ACCOUNT_LEVEL_USER : AppPrefs.ACCOUNT_LEVEL_ADMIN;
+            if (TextUtils.isEmpty(accountId) || TextUtils.isEmpty(deviceId)) {
+                Toast.makeText(this, "계정 ID와 기기 ID를 입력하세요.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            AppPrefs.setAccount(this, accountId, level, deviceId);
+            accountStatus.setText("현재: " + AppPrefs.accountId(this) + " (" + AppPrefs.accountLevel(this) + ") / 기기 " + AppPrefs.deviceId(this));
+            refreshUserKeyState();
+            FirebaseMessaging.getInstance().getToken().addOnSuccessListener(token -> PortalApi.registerFcmToken(this, token));
+            Toast.makeText(this, "현재 계정/기기를 저장했습니다.", Toast.LENGTH_SHORT).show();
+        });
+        MaterialButton accountCreate = primaryButton("계정 추가/갱신");
+        accountCreate.setEnabled(AppPrefs.isAdminAccount(this));
+        accountCreate.setOnClickListener(v -> {
+            if (!AppPrefs.isAdminAccount(this)) {
+                Toast.makeText(this, "Admin 계정에서만 계정 추가가 가능합니다.", Toast.LENGTH_LONG).show();
+                return;
+            }
+            String accountId = accountInput.getText() == null ? "" : accountInput.getText().toString().trim();
+            String level = accountLevelGroup.getCheckedRadioButtonId() == accountUser.getId()
+                    ? AppPrefs.ACCOUNT_LEVEL_USER : AppPrefs.ACCOUNT_LEVEL_ADMIN;
+            if (TextUtils.isEmpty(accountId)) {
+                Toast.makeText(this, "추가할 계정 ID를 입력하세요.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            PortalApi.createAccount(AppPrefs.accountId(this), accountId, level, (success, message) -> runOnUiThread(() -> {
+                Toast.makeText(this, success ? "계정을 저장했습니다." : "계정 저장 실패: " + message, Toast.LENGTH_LONG).show();
+            }));
+        });
+        accountButtons.addView(accountSave, weight1());
+        accountButtons.addView(spacer());
+        accountButtons.addView(accountCreate, weight1());
+        root.addView(accountButtons, topMargin(8));
 
         // ── 1) Device auth method ──────────────────────────────────────────
         root.addView(sectionHeader("인증 방식"), topMargin(24));
@@ -254,7 +336,7 @@ public class SettingsActivity extends AppCompatActivity {
 
                 LocalCredentialStore.save(this, salt, ivAndCiphertext, loginSecret);
 
-                PortalApi.enroll(devicePublicKeyBase64, verifierHex, (success, message) -> runOnUiThread(() -> {
+                PortalApi.enroll(this, devicePublicKeyBase64, verifierHex, (success, message) -> runOnUiThread(() -> {
                     if (success) {
                         keyInput.setText("");
                         refreshUserKeyState();
@@ -313,7 +395,8 @@ public class SettingsActivity extends AppCompatActivity {
 
     private void refreshUserKeyState() {
         boolean enrolled = LocalCredentialStore.isEnrolled(this);
-        userKeyStatus.setText(enrolled ? "상태: 등록됨" : "상태: 미등록");
+        userKeyStatus.setText((enrolled ? "상태: 등록됨" : "상태: 미등록")
+                + " · 계정 " + AppPrefs.accountId(this) + " / 기기 " + AppPrefs.deviceId(this));
         userKeyStatus.setTextColor(enrolled ? UiKit.COLOR_SUCCESS : UiKit.COLOR_ERROR);
     }
 

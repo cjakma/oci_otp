@@ -36,30 +36,66 @@ final class LocalCredentialStore {
         return context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
+    private static String scoped(String key, String accountId, String deviceId) {
+        String account = accountId == null || accountId.trim().isEmpty() ? "AAAA" : accountId.trim();
+        String device = deviceId == null || deviceId.trim().isEmpty() ? "A" : deviceId.trim();
+        return account + ":" + device + ":" + key;
+    }
+
     static boolean isEnrolled(Context context) {
-        return prefs(context).contains(KEY_LOGIN_SECRET_CIPHERTEXT);
+        return isEnrolled(context, AppPrefs.accountId(context), AppPrefs.deviceId(context));
+    }
+
+    private static boolean allowLegacyFallback(String accountId, String deviceId) {
+        String account = accountId == null || accountId.trim().isEmpty() ? "AAAA" : accountId.trim();
+        String device = deviceId == null || deviceId.trim().isEmpty() ? "A" : deviceId.trim();
+        return "AAAA".equals(account) && "A".equals(device);
+    }
+
+    static boolean isEnrolled(Context context, String accountId, String deviceId) {
+        return prefs(context).contains(scoped(KEY_LOGIN_SECRET_CIPHERTEXT, accountId, deviceId))
+                || (allowLegacyFallback(accountId, deviceId) && prefs(context).contains(KEY_LOGIN_SECRET_CIPHERTEXT)); // legacy single-account install
     }
 
     static void save(Context context, byte[] salt, byte[] ivAndCiphertext, byte[] loginSecret) throws Exception {
+        save(context, AppPrefs.accountId(context), AppPrefs.deviceId(context), salt, ivAndCiphertext, loginSecret);
+    }
+
+    static void save(Context context, String accountId, String deviceId, byte[] salt, byte[] ivAndCiphertext, byte[] loginSecret) throws Exception {
         prefs(context).edit()
-                .putString(KEY_SALT, CryptoUtil.base64(salt))
-                .putString(KEY_CIPHERTEXT, CryptoUtil.base64(ivAndCiphertext))
-                .putString(KEY_LOGIN_SECRET_CIPHERTEXT, CryptoUtil.base64(encryptLoginSecret(loginSecret)))
+                .putString(scoped(KEY_SALT, accountId, deviceId), CryptoUtil.base64(salt))
+                .putString(scoped(KEY_CIPHERTEXT, accountId, deviceId), CryptoUtil.base64(ivAndCiphertext))
+                .putString(scoped(KEY_LOGIN_SECRET_CIPHERTEXT, accountId, deviceId), CryptoUtil.base64(encryptLoginSecret(loginSecret)))
                 .apply();
     }
 
     static byte[] getSalt(Context context) {
-        String value = prefs(context).getString(KEY_SALT, null);
+        return getSalt(context, AppPrefs.accountId(context), AppPrefs.deviceId(context));
+    }
+
+    static byte[] getSalt(Context context, String accountId, String deviceId) {
+        String value = prefs(context).getString(scoped(KEY_SALT, accountId, deviceId),
+                allowLegacyFallback(accountId, deviceId) ? prefs(context).getString(KEY_SALT, null) : null);
         return value == null ? null : CryptoUtil.fromBase64(value);
     }
 
     static byte[] getCiphertext(Context context) {
-        String value = prefs(context).getString(KEY_CIPHERTEXT, null);
+        return getCiphertext(context, AppPrefs.accountId(context), AppPrefs.deviceId(context));
+    }
+
+    static byte[] getCiphertext(Context context, String accountId, String deviceId) {
+        String value = prefs(context).getString(scoped(KEY_CIPHERTEXT, accountId, deviceId),
+                allowLegacyFallback(accountId, deviceId) ? prefs(context).getString(KEY_CIPHERTEXT, null) : null);
         return value == null ? null : CryptoUtil.fromBase64(value);
     }
 
     static byte[] getLoginSecret(Context context) throws Exception {
-        String value = prefs(context).getString(KEY_LOGIN_SECRET_CIPHERTEXT, null);
+        return getLoginSecret(context, AppPrefs.accountId(context), AppPrefs.deviceId(context));
+    }
+
+    static byte[] getLoginSecret(Context context, String accountId, String deviceId) throws Exception {
+        String value = prefs(context).getString(scoped(KEY_LOGIN_SECRET_CIPHERTEXT, accountId, deviceId),
+                allowLegacyFallback(accountId, deviceId) ? prefs(context).getString(KEY_LOGIN_SECRET_CIPHERTEXT, null) : null);
         if (value == null) {
             return null;
         }
@@ -67,7 +103,15 @@ final class LocalCredentialStore {
     }
 
     static void clear(Context context) {
-        prefs(context).edit().clear().apply();
+        clear(context, AppPrefs.accountId(context), AppPrefs.deviceId(context));
+    }
+
+    static void clear(Context context, String accountId, String deviceId) {
+        prefs(context).edit()
+                .remove(scoped(KEY_SALT, accountId, deviceId))
+                .remove(scoped(KEY_CIPHERTEXT, accountId, deviceId))
+                .remove(scoped(KEY_LOGIN_SECRET_CIPHERTEXT, accountId, deviceId))
+                .apply();
     }
 
     private static byte[] encryptLoginSecret(byte[] loginSecret) throws Exception {

@@ -173,6 +173,14 @@ Fixed three behaviors (versionCode 7, versionName 0.6.2).
    adb install -r app/build/outputs/apk/debug/app-debug.apk
    ```
 
+## 최신 업데이트 (v0.7.5) — 단일관리자+다중사용자 계정별 OCIOTP 인증
+서버의 `accounts[]` 구조에 맞춰 앱이 현재 계정/권한/기기 ID를 저장하고, 계정별 userKey·credential·인증 이력을 분리하도록 보강했습니다(versionCode 12, versionName 0.7.5).
+
+- **계정/기기 설정(`SettingsActivity`, `AppPrefs`)**: 설정 화면에 계정 ID, 계정 권한(`admin`/`user`), 기기 ID 입력을 추가했습니다. Admin 계정에서만 `계정 추가/갱신` API를 호출할 수 있습니다.
+- **계정별 userKey 저장(`LocalCredentialStore`)**: 기존 단일 저장소를 `account_id:device_id` 스코프로 분리해 AAAA/A, AAAA/B, BBBB/D가 서로 다른 userKey와 credential을 사용할 수 있습니다. 기존 AAAA/A 단일 계정 설치는 legacy fallback으로 읽습니다.
+- **계정별 FCM/enroll/proof 계약(`PortalApi`)**: FCM token 등록, device public key enrollment, proof submit에 `account_id`, `account_level`, `device_id`를 포함합니다.
+- **계정별 인증 이력(`AuthRequestHistoryStore`)**: pending/approved 이력을 `account_id`와 함께 저장·표시하여 AAAA와 BBBB 요청/완료 이력을 구분합니다.
+
 ## 최신 업데이트 (v0.7.4) — 멀티 디바이스 인증 완료 이력 유지
 여러 디바이스(A/B/C)에 동시에 인증 요청이 도착한 뒤 B 디바이스에서 승인하더라도, A/C 디바이스가 기존 요청을 삭제하지 않고 **요청됨 → 인증됨** 상태를 확인할 수 있도록 보강했습니다(versionCode 11, versionName 0.7.4).
 

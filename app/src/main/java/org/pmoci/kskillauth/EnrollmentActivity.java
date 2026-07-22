@@ -140,7 +140,7 @@ public class EnrollmentActivity extends AppCompatActivity {
 
                 LocalCredentialStore.save(this, salt, ivAndCiphertext, loginSecret);
 
-                PortalApi.enroll(devicePublicKeyBase64, verifierHex, (success, message) ->
+                PortalApi.enroll(this, devicePublicKeyBase64, verifierHex, (success, message) ->
                         runOnUiThread(() -> {
                             if (success) {
                                 Toast.makeText(this, "등록이 완료되었습니다.", Toast.LENGTH_LONG).show();

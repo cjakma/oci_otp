@@ -20,7 +20,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     public void onNewToken(String token) {
         super.onNewToken(token);
         Log.i(TAG, "FCM token refreshed: " + tokenSuffix(token));
-        PortalApi.registerFcmToken(token);
+        PortalApi.registerFcmToken(this, token);
     }
 
     @Override
@@ -41,11 +41,13 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             }
             AuthRequestHistoryStore.recordApproved(
                     this,
+                    remoteMessage.getData().get("account_id"),
                     challengeId,
                     remoteMessage.getData().get("admin_id"),
                     remoteMessage.getData().get("approved_at")
             );
             showAdminPortalApprovedNotification(
+                    remoteMessage.getData().get("account_id"),
                     challengeId,
                     remoteMessage.getData().get("admin_id"),
                     remoteMessage.getData().get("approved_at")
@@ -61,6 +63,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
         AuthRequestHistoryStore.recordPending(
                 this,
+                remoteMessage.getData().get("account_id"),
                 challengeId,
                 remoteMessage.getData().get("admin_id"),
                 remoteMessage.getData().get("expires_at")
@@ -70,11 +73,13 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                 challengeId,
                 nonce,
                 remoteMessage.getData().get("admin_id"),
+                remoteMessage.getData().get("account_id"),
+                remoteMessage.getData().get("device_id"),
                 remoteMessage.getData().get("expires_at")
         );
     }
 
-    private void showAdminPortalNotification(String challengeId, String nonce, String adminId, String expiresAt) {
+    private void showAdminPortalNotification(String challengeId, String nonce, String adminId, String accountId, String deviceId, String expiresAt) {
         NotificationManager manager = getSystemService(NotificationManager.class);
         if (manager == null) {
             return;
@@ -86,6 +91,8 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         intent.putExtra("challenge_id", challengeId);
         intent.putExtra("nonce", nonce);
         intent.putExtra("admin_id", adminId);
+        intent.putExtra("account_id", accountId);
+        intent.putExtra("device_id", deviceId);
         intent.putExtra("expires_at", expiresAt);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
@@ -113,7 +120,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         manager.notify(challengeId.hashCode(), notification);
     }
 
-    private void showAdminPortalApprovedNotification(String challengeId, String adminId, String approvedAt) {
+    private void showAdminPortalApprovedNotification(String accountId, String challengeId, String adminId, String approvedAt) {
         NotificationManager manager = getSystemService(NotificationManager.class);
         if (manager == null) {
             return;

@@ -3,6 +3,7 @@ package org.pmoci.kskillauth;
 import org.json.JSONObject;
 
 import android.util.Log;
+import android.content.Context;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -37,7 +38,7 @@ final class PortalApi {
     }
 
     /** Registers the FCM token with the server (device-enrollment-key protected). */
-    static void registerFcmToken(String token) {
+    static void registerFcmToken(Context context, String token) {
         if (token == null || token.trim().isEmpty()) {
             Log.w(TAG, "Skipped FCM token registration: empty token.");
             return;
@@ -51,6 +52,9 @@ final class PortalApi {
             try {
                 JSONObject body = new JSONObject();
                 body.put("fcm_token", token);
+                body.put("account_id", AppPrefs.accountId(context));
+                body.put("account_level", AppPrefs.accountLevel(context));
+                body.put("device_id", AppPrefs.deviceId(context));
                 String response = post(portalBaseUrl(), "/api/admin/portal-device/token", body, true);
                 Log.i(TAG, "FCM token registered with portal. token=" + tokenSuffix(token)
                         + ", response=" + response);
@@ -62,13 +66,32 @@ final class PortalApi {
     }
 
     /** One-time enrollment: registers the Keystore public key + login-secret verifier. */
-    static void enroll(String devicePublicKeyBase64, String verifierHex, Callback callback) {
+    static void enroll(Context context, String devicePublicKeyBase64, String verifierHex, Callback callback) {
         new Thread(() -> {
             try {
                 JSONObject body = new JSONObject();
+                body.put("account_id", AppPrefs.accountId(context));
+                body.put("account_level", AppPrefs.accountLevel(context));
+                body.put("device_id", AppPrefs.deviceId(context));
                 body.put("device_pubkey", devicePublicKeyBase64);
                 body.put("verifier", verifierHex);
                 String message = post(portalBaseUrl(), "/api/admin/portal-enroll", body, true);
+                callback.onComplete(true, message);
+            } catch (Exception error) {
+                callback.onComplete(false, error.getMessage());
+            }
+        }).start();
+    }
+
+
+    static void createAccount(String ownerAccountId, String accountId, String accountLevel, Callback callback) {
+        new Thread(() -> {
+            try {
+                JSONObject body = new JSONObject();
+                body.put("owner_account_id", ownerAccountId);
+                body.put("account_id", accountId);
+                body.put("account_level", accountLevel);
+                String message = post(portalBaseUrl(), "/api/admin/portal-account", body, true);
                 callback.onComplete(true, message);
             } catch (Exception error) {
                 callback.onComplete(false, error.getMessage());
@@ -82,7 +105,7 @@ final class PortalApi {
      *   gateway then calls the 0852 server back.
      * - Otherwise posts straight to the server callback using the device enrollment key.
      */
-    static void submitProof(String challengeId, String proofHex, String signatureBase64, Callback callback) {
+    static void submitProof(Context context, String challengeId, String proofHex, String signatureBase64, Callback callback) {
         new Thread(() -> {
             try {
                 String gatewayBaseUrl = BuildConfig.GATEWAY_BASE_URL;
@@ -92,11 +115,13 @@ final class PortalApi {
                     body.put("cid", challengeId);
                     body.put("proof", proofHex);
                     body.put("sig", signatureBase64);
+                    body.put("device_id", AppPrefs.deviceId(context));
                     message = post(gatewayBaseUrl, "/api/submit", body, false);
                 } else {
                     body.put("challenge_id", challengeId);
                     body.put("proof", proofHex);
                     body.put("sig", signatureBase64);
+                    body.put("device_id", AppPrefs.deviceId(context));
                     message = post(portalBaseUrl(), "/api/admin/portal-callback", body, true);
                 }
                 callback.onComplete(true, message);

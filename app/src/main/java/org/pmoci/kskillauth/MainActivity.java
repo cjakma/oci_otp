@@ -103,6 +103,7 @@ public class MainActivity extends AppCompatActivity {
             if (!TextUtils.isEmpty(challengeId)) {
                 AuthRequestHistoryStore.recordApproved(
                         this,
+                        intent.getStringExtra("account_id"),
                         challengeId,
                         intent.getStringExtra("admin_id"),
                         intent.getStringExtra("approved_at"));
@@ -123,6 +124,7 @@ public class MainActivity extends AppCompatActivity {
 
         AuthRequestHistoryStore.recordPending(
                 this,
+                intent.getStringExtra("account_id"),
                 challengeId,
                 intent.getStringExtra("admin_id"),
                 intent.getStringExtra("expires_at"));
@@ -131,6 +133,8 @@ public class MainActivity extends AppCompatActivity {
         approval.putExtra("challenge_id", challengeId);
         approval.putExtra("nonce", nonce);
         approval.putExtra("admin_id", intent.getStringExtra("admin_id"));
+        approval.putExtra("account_id", intent.getStringExtra("account_id"));
+        approval.putExtra("device_id", intent.getStringExtra("device_id"));
         approval.putExtra("expires_at", intent.getStringExtra("expires_at"));
         startActivity(approval);
 
@@ -290,7 +294,7 @@ public class MainActivity extends AppCompatActivity {
         FirebaseMessaging.getInstance().getToken()
                 .addOnSuccessListener(token -> {
                     Log.i(TAG, "FCM token acquired; registering with portal.");
-                    PortalApi.registerFcmToken(token);
+                    PortalApi.registerFcmToken(this, token);
                 })
                 .addOnFailureListener(error ->
                         Log.e(TAG, "Failed to acquire FCM token.", error));

@@ -21,6 +21,12 @@ final class AppPrefs {
     private static final String KEY_AUTH_METHOD = "auth_method";
     private static final String KEY_SERVER_BASE_URL = "server_base_url";
     private static final String KEY_MAIN_IMAGE_URI = "main_image_uri";
+    private static final String KEY_ACCOUNT_ID = "account_id";
+    private static final String KEY_ACCOUNT_LEVEL = "account_level";
+    private static final String KEY_DEVICE_ID = "device_id";
+
+    static final String ACCOUNT_LEVEL_ADMIN = "admin";
+    static final String ACCOUNT_LEVEL_USER = "user";
 
     private AppPrefs() {
     }
@@ -65,5 +71,30 @@ final class AppPrefs {
 
     static void clearMainImageUri(Context context) {
         prefs(context).edit().remove(KEY_MAIN_IMAGE_URI).apply();
+    }
+
+    static String accountId(Context context) {
+        return prefs(context).getString(KEY_ACCOUNT_ID, "AAAA");
+    }
+
+    static String accountLevel(Context context) {
+        return prefs(context).getString(KEY_ACCOUNT_LEVEL, ACCOUNT_LEVEL_ADMIN);
+    }
+
+    static boolean isAdminAccount(Context context) {
+        return ACCOUNT_LEVEL_ADMIN.equals(accountLevel(context));
+    }
+
+    static String deviceId(Context context) {
+        return prefs(context).getString(KEY_DEVICE_ID, "A");
+    }
+
+    static void setAccount(Context context, String accountId, String accountLevel, String deviceId) {
+        String level = ACCOUNT_LEVEL_USER.equals(accountLevel) ? ACCOUNT_LEVEL_USER : ACCOUNT_LEVEL_ADMIN;
+        prefs(context).edit()
+                .putString(KEY_ACCOUNT_ID, TextUtils.isEmpty(accountId) ? "AAAA" : accountId.trim())
+                .putString(KEY_ACCOUNT_LEVEL, level)
+                .putString(KEY_DEVICE_ID, TextUtils.isEmpty(deviceId) ? "A" : deviceId.trim())
+                .apply();
     }
 }

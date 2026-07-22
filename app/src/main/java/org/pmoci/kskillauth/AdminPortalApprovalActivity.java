@@ -29,6 +29,8 @@ public class AdminPortalApprovalActivity extends AppCompatActivity {
     private TextView statusText;
     private String challengeId;
     private String nonce;
+    private String accountId;
+    private String deviceId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,6 +44,10 @@ public class AdminPortalApprovalActivity extends AppCompatActivity {
         challengeId = getIntent().getStringExtra("challenge_id");
         nonce = getIntent().getStringExtra("nonce");
         String adminId = getIntent().getStringExtra("admin_id");
+        accountId = getIntent().getStringExtra("account_id");
+        deviceId = getIntent().getStringExtra("device_id");
+        if (accountId == null || accountId.trim().isEmpty()) accountId = AppPrefs.accountId(this);
+        if (deviceId == null || deviceId.trim().isEmpty()) deviceId = AppPrefs.deviceId(this);
         String expiresAt = getIntent().getStringExtra("expires_at");
 
         if (challengeId == null || challengeId.trim().isEmpty()
@@ -50,7 +56,7 @@ public class AdminPortalApprovalActivity extends AppCompatActivity {
             return;
         }
 
-        if (!LocalCredentialStore.isEnrolled(this)) {
+        if (!LocalCredentialStore.isEnrolled(this, accountId, deviceId)) {
             Toast.makeText(this, "먼저 userKey 등록이 필요합니다.", Toast.LENGTH_LONG).show();
             startActivity(new Intent(this, EnrollmentActivity.class));
             finish();
@@ -129,7 +135,7 @@ public class AdminPortalApprovalActivity extends AppCompatActivity {
 
         new Thread(() -> {
             try {
-                byte[] loginSecret = LocalCredentialStore.getLoginSecret(this);
+                byte[] loginSecret = LocalCredentialStore.getLoginSecret(this, accountId, deviceId);
                 if (loginSecret == null) {
                     showFailure("저장된 인증 정보가 없습니다. userKey를 다시 등록하세요.");
                     return;
@@ -140,7 +146,7 @@ public class AdminPortalApprovalActivity extends AppCompatActivity {
                 byte[] signMessage = (challengeId + "." + nonce + "." + proofHex).getBytes(StandardCharsets.UTF_8);
                 String signatureBase64 = CryptoUtil.base64(DeviceKeyStore.sign(signMessage));
 
-                PortalApi.submitProof(challengeId, proofHex, signatureBase64, (success, message) ->
+                PortalApi.submitProof(this, challengeId, proofHex, signatureBase64, (success, message) ->
                         runOnUiThread(() -> {
                             if (success) {
                                 Toast.makeText(this, "관리자 로그인을 승인했습니다.", Toast.LENGTH_LONG).show();

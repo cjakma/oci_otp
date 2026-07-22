@@ -29,6 +29,7 @@ public class EnrollmentActivity extends AppCompatActivity {
     private EditText userKeyInput;
     private EditText confirmInput;
     private EditText serverUrlInput;
+    private EditText accountIdInput;
     private MaterialButton enrollButton;
     private TextView statusText;
 
@@ -60,7 +61,7 @@ public class EnrollmentActivity extends AppCompatActivity {
 
         root.addView(UiKit.title(this, "인증앱 등록"), UiKit.matchWrap());
         TextView description = UiKit.subtitle(this,
-                "첫 등록에 필요한 서버 주소와 userKey를 설정합니다. userKey는 저장되거나 전송되지 않으며, 분실하면 서버 초기화 후 다시 등록해야 합니다.");
+                "첫 등록에 필요한 서버 주소, account_id, userKey를 설정합니다. device_id는 앱이 자동으로 생성해 등록합니다. userKey는 저장되거나 전송되지 않으며, 분실하면 서버 초기화 후 다시 등록해야 합니다.");
         root.addView(description, UiKit.topMargin(this, 12));
 
         MaterialCardView card = UiKit.card(this);
@@ -72,6 +73,11 @@ public class EnrollmentActivity extends AppCompatActivity {
         serverUrlInput = serverLayout.getEditText();
         serverUrlInput.setText(AppPrefs.serverBaseUrl(this));
         content.addView(serverLayout, UiKit.matchWrap());
+
+        TextInputLayout accountLayout = textLayout("account_id");
+        accountIdInput = accountLayout.getEditText();
+        accountIdInput.setText(AppPrefs.accountId(this));
+        content.addView(accountLayout, UiKit.topMargin(this, 12));
 
         TextInputLayout userKeyLayout = passwordLayout("userKey");
         userKeyInput = userKeyLayout.getEditText();
@@ -100,16 +106,19 @@ public class EnrollmentActivity extends AppCompatActivity {
             }
         };
         serverUrlInput.addTextChangedListener(watcher);
+        accountIdInput.addTextChangedListener(watcher);
         userKeyInput.addTextChangedListener(watcher);
         confirmInput.addTextChangedListener(watcher);
     }
 
     private void updateButtonState() {
         String serverUrl = serverUrlInput.getText().toString().trim();
+        String accountId = accountIdInput.getText().toString().trim();
         String p1 = userKeyInput.getText().toString();
         String p2 = confirmInput.getText().toString();
         boolean serverReady = serverUrl.startsWith("https://");
-        boolean match = serverReady && !p1.isEmpty() && p1.equals(p2);
+        boolean accountReady = !accountId.isEmpty();
+        boolean match = serverReady && accountReady && !p1.isEmpty() && p1.equals(p2);
 
         UiKit.setButtonEnabled(enrollButton, match);
     }
@@ -132,15 +141,21 @@ public class EnrollmentActivity extends AppCompatActivity {
 
     private void enroll() {
         String serverUrl = serverUrlInput.getText().toString().trim();
+        String accountId = accountIdInput.getText().toString().trim();
         String userKey = userKeyInput.getText().toString();
 
         if (!serverUrl.startsWith("https://")) {
             reEnable("https:// 로 시작하는 서버 주소를 입력하세요.");
             return;
         }
+        if (accountId.isEmpty()) {
+            reEnable("account_id를 입력하세요.");
+            return;
+        }
 
         enrollButton.setEnabled(false);
         serverUrlInput.setEnabled(false);
+        accountIdInput.setEnabled(false);
         userKeyInput.setEnabled(false);
         confirmInput.setEnabled(false);
         statusText.setText("등록 중...");
@@ -149,6 +164,7 @@ public class EnrollmentActivity extends AppCompatActivity {
             try {
                 AppPrefs.setServerBaseUrl(this, serverUrl);
                 PortalApi.setBaseUrlOverride(serverUrl);
+                AppPrefs.setAccount(this, accountId, AppPrefs.ACCOUNT_LEVEL_ADMIN, AppPrefs.generatedDeviceId(this));
 
                 String devicePublicKeyBase64 = DeviceKeyStore.publicKeyBase64();
                 byte[] salt = CryptoUtil.randomBytes(SALT_BYTES);
@@ -179,6 +195,7 @@ public class EnrollmentActivity extends AppCompatActivity {
     private void reEnable(String message) {
         updateButtonState();
         serverUrlInput.setEnabled(true);
+        accountIdInput.setEnabled(true);
         userKeyInput.setEnabled(true);
         confirmInput.setEnabled(true);
         statusText.setText(message);

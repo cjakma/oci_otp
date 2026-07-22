@@ -2,6 +2,8 @@ package org.pmoci.kskillauth;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Build;
+import android.provider.Settings;
 import android.text.TextUtils;
 
 /**
@@ -89,6 +91,19 @@ final class AppPrefs {
         return prefs(context).getString(KEY_DEVICE_ID, "");
     }
 
+    static String generatedDeviceId(Context context) {
+        String androidId = Settings.Secure.getString(
+                context.getApplicationContext().getContentResolver(),
+                Settings.Secure.ANDROID_ID);
+        String suffix = TextUtils.isEmpty(androidId) ? Build.DEVICE : androidId;
+        if (suffix == null) {
+            suffix = "unknown";
+        }
+        int keep = Math.min(8, suffix.length());
+        String model = TextUtils.isEmpty(Build.MODEL) ? "android" : Build.MODEL;
+        return sanitizeDeviceId("device-" + model + "-" + suffix.substring(suffix.length() - keep));
+    }
+
     static void setAccount(Context context, String accountId, String accountLevel, String deviceId) {
         String level = ACCOUNT_LEVEL_USER.equals(accountLevel) ? ACCOUNT_LEVEL_USER : ACCOUNT_LEVEL_ADMIN;
         prefs(context).edit()
@@ -96,5 +111,9 @@ final class AppPrefs {
                 .putString(KEY_ACCOUNT_LEVEL, level)
                 .putString(KEY_DEVICE_ID, deviceId == null ? "" : deviceId.trim())
                 .apply();
+    }
+
+    private static String sanitizeDeviceId(String value) {
+        return value == null ? "device-unknown" : value.trim().replaceAll("[^A-Za-z0-9._-]+", "_");
     }
 }

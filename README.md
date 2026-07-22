@@ -31,7 +31,7 @@ In addition to the legacy WebView flow, it includes a hardened **OTP redesign us
 ## App Information
 - **App name**: `인증용 App`
 - **Package**: `org.pmoci.kskillauth`
-- **Version**: `0.7.7` (versionCode 14)
+- **Version**: `0.7.8` (versionCode 15)
 - **SDK**: `minSdk 23`, `targetSdk 35`, `compileSdk 35`
 
 ## Build and Install
@@ -60,6 +60,13 @@ In addition to the legacy WebView flow, it includes a hardened **OTP redesign us
 - Primary allowed/verified device set: **Galaxy S26**, **Galaxy S26 Ultra**, **Galaxy S22 Ultra**, **Galaxy A52s 5G**, **LG V50**.
 - The repository does not contain a Java/Manifest runtime model whitelist. Android installability is governed by `minSdk 23`, required permissions/features, APK signing, and any external distribution/device-catalog policy.
 - **Galaxy A52s 5G public-spec review**: Samsung's public page lists Android OS, Samsung Knox, on-screen fingerprint sensor, Google apps, 5G, and NFC. GSMArena lists Android 11 upgradeable to Android 14/One UI 6, Snapdragon 778G 5G, 4–8GB RAM, Wi-Fi, Bluetooth, NFC, and model family `SM-A528*`. Based on those specs, it satisfies this app's practical requirements: Android API above 23, Google/Firebase-capable Android environment, device credential/fingerprint authentication, Android Keystore, and network/FCM support, so it is included in the primary allowed-device set. Real-device APK install and FCM/enrollment/approval verification is still recommended.
+
+## Latest Update (v0.7.8) — First Enrollment Account ID and Automatic Device ID
+The first userKey enrollment screen now asks for `account_id` while the app generates `device_id` automatically (versionCode 15, versionName 0.7.8).
+
+- **First-run account setup**: `EnrollmentActivity` includes a required `account_id` input alongside the server address and userKey fields.
+- **Automatic device_id**: The first enrollment no longer asks the user for `device_id`; the app generates a stable Android device identifier from the device model and Android ID suffix, then stores it in `AppPrefs` before enrollment.
+- **Initial account role**: The first account registered from the enrollment screen is stored locally as `admin`; additional user accounts are still managed later from the Admin-only account screen.
 
 ## Latest Update (v0.7.7) — First Enrollment Server Address Input
 The first userKey enrollment screen now asks for the server address before enrollment is submitted (versionCode 14, versionName 0.7.7).
@@ -162,7 +169,7 @@ Fixed three behaviors (versionCode 7, versionName 0.6.2).
 ## 앱 정보
 - **앱 이름**: `인증용 App`
 - **패키지**: `org.pmoci.kskillauth`
-- **버전**: `0.7.7` (versionCode 14)
+- **버전**: `0.7.8` (versionCode 15)
 - **SDK**: `minSdk 23`, `targetSdk 35`, `compileSdk 35`
 
 ## 빌드 및 설치
@@ -191,6 +198,13 @@ Fixed three behaviors (versionCode 7, versionName 0.6.2).
 - 1차 허용/검증 기기: **Galaxy S26**, **Galaxy S26 Ultra**, **Galaxy S22 Ultra**, **Galaxy A52s 5G**, **LG V50**.
 - 현재 저장소에는 Java/Manifest 수준의 런타임 모델 whitelist가 없습니다. Android 설치 가능 여부는 `minSdk 23`, 요구 권한/기능, APK 서명, 그리고 외부 배포 채널의 device catalog 정책에 의해 결정됩니다.
 - **Galaxy A52s 5G 공개 스펙 검토**: Samsung 공식 페이지는 Android OS, Samsung Knox, 온스크린 지문 센서, Google 앱, 5G, NFC를 명시합니다. GSMArena는 Android 11 출시 후 Android 14/One UI 6 업그레이드, Snapdragon 778G 5G, 4–8GB RAM, Wi-Fi/Bluetooth/NFC, `SM-A528*` 모델군을 명시합니다. 따라서 이 앱의 실질 요구사항인 Android API 23 이상, Google/Firebase 사용 가능 환경, 기기 잠금/지문 인증, Android Keystore, 네트워크/FCM 지원을 공개 스펙상 충족하므로 1차 허용 기기 목록에 포함했습니다. 실기기에서 설치 → FCM token 등록 → userKey enrollment → 로그인 승인까지 확인하는 것은 계속 권장합니다.
+
+## 최신 업데이트 (v0.7.8) — 최초 등록 account_id 입력 및 device_id 자동 처리
+첫 userKey 등록 화면에서 `account_id`를 입력받고, `device_id`는 앱이 자동 생성해 등록하도록 수정했습니다(versionCode 15, versionName 0.7.8).
+
+- **첫 기동 account_id 설정**: `EnrollmentActivity`에 서버 주소/userKey 입력과 함께 필수 `account_id` 입력란을 추가했습니다.
+- **device_id 자동 생성**: 최초 등록 화면에서는 `device_id`를 묻지 않고, 앱이 기기 모델과 Android ID suffix 기반의 안정적인 기기 식별자를 생성해 `AppPrefs`에 저장한 뒤 등록 요청에 사용합니다.
+- **최초 계정 등급**: 최초 등록 화면에서 등록되는 계정은 로컬에 `admin`으로 저장됩니다. 추가 user 계정은 이후 Admin 전용 계정 화면에서 관리합니다.
 
 ## 최신 업데이트 (v0.7.7) — 최초 등록 서버 주소 입력 추가
 첫 userKey 등록 화면에서 서버 주소를 함께 입력한 뒤 등록 요청을 보내도록 수정했습니다(versionCode 14, versionName 0.7.7).

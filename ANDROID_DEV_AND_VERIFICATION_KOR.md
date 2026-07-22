@@ -4,8 +4,9 @@
 확인·검증하기 위한 자료입니다. 서버(0852, Node.js)와의 암호 계약이 **정확히 일치**하는지가 핵심입니다.
 
 - 패키지: `org.pmoci.kskillauth` · `minSdk 23` / `targetSdk 35` / `compileSdk 35`
-- 버전: `versionCode 10` / `versionName 0.7.1`
-- 대상기기: Galaxy S26, Galaxy S22 Ultra, LG V50
+- 버전: `versionCode 13` / `versionName 0.7.6`
+- 대상기기: Galaxy S26, Galaxy S26 Ultra, Galaxy S22 Ultra, Galaxy A52s 5G, LG V50
+- Galaxy A52s 5G 근거: `SM-A528*`, Android 11→14, 온스크린 지문 센서, Google/Firebase 사용 가능 Android 환경으로 공개 스펙상 앱 요구사항 충족
 
 ---
 

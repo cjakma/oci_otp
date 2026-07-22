@@ -3,7 +3,7 @@
 > This README is arranged with the English version first and the Korean version below.
 > 이 README는 영문을 위쪽에, 한글을 아래쪽에 배치했습니다.
 
-This Android authentication app is configured for Samsung Galaxy S26, Samsung Galaxy S22 Ultra, and LG V50 devices.
+This Android authentication app is configured for Samsung Galaxy S26, Samsung Galaxy S26 Ultra, Samsung Galaxy S22 Ultra, Galaxy A52s 5G, and LG V50 devices.
 In addition to the legacy WebView flow, it includes a hardened **OTP redesign using FCM push-based approval**.
 
 ## Features and Implementation
@@ -31,7 +31,7 @@ In addition to the legacy WebView flow, it includes a hardened **OTP redesign us
 ## App Information
 - **App name**: `인증용 App`
 - **Package**: `org.pmoci.kskillauth`
-- **Version**: `0.7.2` (versionCode 10)
+- **Version**: `0.7.6` (versionCode 13)
 - **SDK**: `minSdk 23`, `targetSdk 35`, `compileSdk 35`
 
 ## Build and Install
@@ -54,6 +54,12 @@ In addition to the legacy WebView flow, it includes a hardened **OTP redesign us
    ```bash
    adb install -r app/build/outputs/apk/debug/app-debug.apk
    ```
+
+## Device Allowance / Compatibility Notes
+
+- Primary allowed/verified device set: **Galaxy S26**, **Galaxy S26 Ultra**, **Galaxy S22 Ultra**, **Galaxy A52s 5G**, **LG V50**.
+- The repository does not contain a Java/Manifest runtime model whitelist. Android installability is governed by `minSdk 23`, required permissions/features, APK signing, and any external distribution/device-catalog policy.
+- **Galaxy A52s 5G public-spec review**: Samsung's public page lists Android OS, Samsung Knox, on-screen fingerprint sensor, Google apps, 5G, and NFC. GSMArena lists Android 11 upgradeable to Android 14/One UI 6, Snapdragon 778G 5G, 4–8GB RAM, Wi-Fi, Bluetooth, NFC, and model family `SM-A528*`. Based on those specs, it satisfies this app's practical requirements: Android API above 23, Google/Firebase-capable Android environment, device credential/fingerprint authentication, Android Keystore, and network/FCM support, so it is included in the primary allowed-device set. Real-device APK install and FCM/enrollment/approval verification is still recommended.
 
 ## Latest Update (v0.7.1) — Bug Fixes
 Improved the FCM approval flow and device-specific notification receiving behavior (versionCode 10, versionName 0.7.1).
@@ -121,7 +127,7 @@ Fixed three behaviors (versionCode 7, versionName 0.6.2).
 
 # Cloud Server 인증용 Android 앱
 
-대상 기기: Samsung Galaxy S26, Samsung Galaxy S22 Ultra, LG V50 기준으로 구성한 인증용 앱입니다.
+대상 기기: Samsung Galaxy S26, Samsung Galaxy S26 Ultra, Samsung Galaxy S22 Ultra, Galaxy A52s 5G, LG V50 기준으로 구성한 인증용 앱입니다.
 기존 WebView 방식에 더해, 보안이 강화된 **OTP redesign (FCM 푸시 기반 승인)** 기능이 추가되었습니다.
 
 ## 주요 기능 및 구현 방식
@@ -172,6 +178,12 @@ Fixed three behaviors (versionCode 7, versionName 0.6.2).
    ```bash
    adb install -r app/build/outputs/apk/debug/app-debug.apk
    ```
+
+## 기기 허용 / 호환성 메모
+
+- 1차 허용/검증 기기: **Galaxy S26**, **Galaxy S26 Ultra**, **Galaxy S22 Ultra**, **Galaxy A52s 5G**, **LG V50**.
+- 현재 저장소에는 Java/Manifest 수준의 런타임 모델 whitelist가 없습니다. Android 설치 가능 여부는 `minSdk 23`, 요구 권한/기능, APK 서명, 그리고 외부 배포 채널의 device catalog 정책에 의해 결정됩니다.
+- **Galaxy A52s 5G 공개 스펙 검토**: Samsung 공식 페이지는 Android OS, Samsung Knox, 온스크린 지문 센서, Google 앱, 5G, NFC를 명시합니다. GSMArena는 Android 11 출시 후 Android 14/One UI 6 업그레이드, Snapdragon 778G 5G, 4–8GB RAM, Wi-Fi/Bluetooth/NFC, `SM-A528*` 모델군을 명시합니다. 따라서 이 앱의 실질 요구사항인 Android API 23 이상, Google/Firebase 사용 가능 환경, 기기 잠금/지문 인증, Android Keystore, 네트워크/FCM 지원을 공개 스펙상 충족하므로 1차 허용 기기 목록에 포함했습니다. 실기기에서 설치 → FCM token 등록 → userKey enrollment → 로그인 승인까지 확인하는 것은 계속 권장합니다.
 
 ## 최신 업데이트 (v0.7.6) — 설정 화면 표시/기본 서버주소 정리
 설정 화면에서 현재 반영 버전을 바로 확인할 수 있도록 앱 버전을 표시하고, 계정/기기/userKey/서버주소 표시 문구를 정리했습니다(versionCode 13, versionName 0.7.6).

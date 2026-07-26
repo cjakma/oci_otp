@@ -31,7 +31,7 @@ In addition to the legacy WebView flow, it includes a hardened **OTP redesign us
 ## App Information
 - **App name**: `인증용 App`
 - **Package**: `org.pmoci.kskillauth`
-- **Version**: `0.7.8` (versionCode 15)
+- **Version**: `0.7.9` (versionCode 16)
 - **SDK**: `minSdk 23`, `targetSdk 35`, `compileSdk 35`
 
 ## Build and Install
@@ -60,6 +60,13 @@ In addition to the legacy WebView flow, it includes a hardened **OTP redesign us
 - Primary allowed/verified device set: **Galaxy S26**, **Galaxy S26 Ultra**, **Galaxy S22 Ultra**, **Galaxy A52s 5G**, **LG V50**.
 - The repository does not contain a Java/Manifest runtime model whitelist. Android installability is governed by `minSdk 23`, required permissions/features, APK signing, and any external distribution/device-catalog policy.
 - **Galaxy A52s 5G public-spec review**: Samsung's public page lists Android OS, Samsung Knox, on-screen fingerprint sensor, Google apps, 5G, and NFC. GSMArena lists Android 11 upgradeable to Android 14/One UI 6, Snapdragon 778G 5G, 4–8GB RAM, Wi-Fi, Bluetooth, NFC, and model family `SM-A528*`. Based on those specs, it satisfies this app's practical requirements: Android API above 23, Google/Firebase-capable Android environment, device credential/fingerprint authentication, Android Keystore, and network/FCM support, so it is included in the primary allowed-device set. Real-device APK install and FCM/enrollment/approval verification is still recommended.
+
+## Latest Update (v0.7.9) — Approved-State Notification Reuses the Request Notification ID
+Aligned the app with the corrected common-auth-service push contract so multi-device request history is preserved (versionCode 16, versionName 0.7.9).
+
+- **Same notification id for pending and approved**: The approved-state `PendingIntent` now reuses `challengeId.hashCode()` (previously `(challengeId + ":approved").hashCode()`), so when device B approves, devices A/C update the same notification/entry to `인증됨` instead of losing their request history.
+- **Contract compatibility**: The server now sends approved-state pushes as `type=admin_portal_login` + `status=approved` + `approved_at` with the same `challenge_id` (previously `type=admin_portal_login_approved` + `state=approved`, which this app ignored). No app-side parsing change was required — `MyFirebaseMessagingService` already handled `status=approved|authenticated`.
+- **No secrets or endpoints changed**: Only the approved notification's request code was adjusted.
 
 ## Latest Update (v0.7.8) — First Enrollment Account ID and Automatic Device ID
 The first userKey enrollment screen now asks for `account_id` while the app generates `device_id` automatically (versionCode 15, versionName 0.7.8).

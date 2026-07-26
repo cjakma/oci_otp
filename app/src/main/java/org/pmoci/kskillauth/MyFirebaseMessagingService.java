@@ -131,9 +131,13 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         Intent intent = new Intent(this, MainActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
+        // Use the same request code (challengeId.hashCode()) as the pending notification so the
+        // approved-state update replaces the original request instead of creating a second one.
+        // The target activity differs (MainActivity vs AdminPortalApprovalActivity), so the two
+        // PendingIntents remain distinct even though they share a request code.
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 this,
-                (challengeId + ":approved").hashCode(),
+                challengeId.hashCode(),
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );

@@ -8,6 +8,9 @@ def adminDeviceEnrollmentKey = project.findProperty('adminDeviceEnrollmentKey') 
 // OTP redesign: the Hermes Gateway the phone submits its proof to (empty -> post the proof
 // directly to the 0852 server's /api/admin/portal-callback using the device enrollment key).
 def gatewayBaseUrl = project.findProperty('gatewayBaseUrl') ?: 'https://otp.pm-oci.duckdns.org'
+// The ONE account_id that enrolls at admin level. Every other account_id enrolls as 'user',
+// so a family/second device can never quietly grant itself the admin account's reach.
+def adminAccountId = project.findProperty('adminAccountId') ?: 'cjakma'
 
 android {
     namespace 'org.pmoci.kskillauth'
@@ -17,12 +20,13 @@ android {
         applicationId 'org.pmoci.kskillauth'
         minSdk 23
         targetSdk 35
-        versionCode 16
-        versionName '0.7.9'
+        versionCode 17
+        versionName '0.8.0'
         buildConfigField 'String', 'AUTH_BASE_URL', '"https://otp.pm-oci.duckdns.org"'
         buildConfigField 'String', 'PORTAL_API_BASE_URL', "\"${portalApiBaseUrl}\""
         buildConfigField 'String', 'GATEWAY_BASE_URL', "\"${gatewayBaseUrl}\""
         buildConfigField 'String', 'ADMIN_DEVICE_ENROLLMENT_KEY', "\"${adminDeviceEnrollmentKey}\""
+        buildConfigField 'String', 'ADMIN_ACCOUNT_ID', "\"${adminAccountId}\""
     }
 
     buildFeatures {

@@ -37,38 +37,92 @@ final class PortalApi {
         return baseUrlOverride != null ? baseUrlOverride : BuildConfig.PORTAL_API_BASE_URL;
     }
 
-    /** Registers the FCM token with the server (device-enrollment-key protected). */
-    static void registerFcmToken(Context context, String token) {
+    /**
+     * Is the server at `baseUrl` actually there? `/healthz` is the one unauthenticated GET the
+     * auth service exposes, so this separates "wrong address / no network" from "address fine,
+     * the call was rejected" — which the enrollment screen reports as different failures.
+     * Throws (unchecked) with a message meant for the screen; returns normally on success.
+     */
+    static void ping(String baseUrl) {
+        String base = baseUrl == null ? "" : baseUrl.trim();
+        if (base.isEmpty()) {
+            throw new IllegalStateException("서버 주소가 비어 있습니다.");
+        }
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) new URL(base + "/healthz").openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(10000);
+            connection.setReadTimeout(10000);
+            connection.setRequestProperty("Connection", "close");
+            int statusCode = connection.getResponseCode();
+            if (statusCode < 200 || statusCode >= 300) {
+                throw new IllegalStateException("서버가 " + statusCode + " 를 반환했습니다. 주소를 확인하세요.");
+            }
+        } catch (IOException networkError) {
+            String detail = networkError.getMessage() == null ? networkError.toString() : networkError.getMessage();
+            throw new IllegalStateException("서버에 연결할 수 없습니다: " + detail);
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
+
+    /** Creates (or re-levels) the account record. Safe to repeat: the server upserts. */
+    static String createAccountSync(String accountId, String accountLevel) throws Exception {
+        JSONObject body = new JSONObject();
+        body.put("account_id", accountId);
+        body.put("account_level", accountLevel);
+        return post(portalBaseUrl(), "/api/admin/portal-account", body, true);
+    }
+
+    /** One-time enrollment (blocking): Keystore public key + login-secret verifier. */
+    static String enrollSync(Context context, String devicePublicKeyBase64, String verifierHex) throws Exception {
+        JSONObject body = new JSONObject();
+        body.put("account_id", AppPrefs.accountId(context));
+        body.put("account_level", AppPrefs.accountLevel(context));
+        body.put("device_id", AppPrefs.deviceId(context));
+        body.put("device_pubkey", devicePublicKeyBase64);
+        body.put("verifier", verifierHex);
+        return post(portalBaseUrl(), "/api/admin/portal-enroll", body, true);
+    }
+
+    /**
+     * Registers the FCM token (blocking). Every precondition THROWS instead of returning
+     * quietly: a device with no token registered is a device the server cannot ask to approve
+     * anything, and that has to be visible at enrollment time rather than in logcat.
+     */
+    static String registerFcmTokenSync(Context context, String token) throws Exception {
         if (token == null || token.trim().isEmpty()) {
-            Log.w(TAG, "Skipped FCM token registration: empty token.");
-            return;
+            throw new IllegalStateException("FCM 토큰이 비어 있습니다.");
         }
         if (BuildConfig.ADMIN_DEVICE_ENROLLMENT_KEY.isEmpty()) {
-            Log.w(TAG, "Skipped FCM token registration: missing device enrollment key.");
-            return;
+            throw new IllegalStateException("기기 등록 키가 빌드에 포함되지 않았습니다.");
         }
         if (portalBaseUrl().trim().isEmpty()) {
-            Log.w(TAG, "Skipped FCM token registration: server URL is not configured.");
-            return;
+            throw new IllegalStateException("서버 주소가 설정되지 않았습니다.");
         }
         if (AppPrefs.accountId(context).trim().isEmpty() || AppPrefs.deviceId(context).trim().isEmpty()) {
-            Log.w(TAG, "Skipped FCM token registration: account/device is not configured.");
-            return;
+            throw new IllegalStateException("계정/기기 정보가 저장되지 않았습니다.");
         }
+        JSONObject body = new JSONObject();
+        body.put("fcm_token", token);
+        body.put("account_id", AppPrefs.accountId(context));
+        body.put("account_level", AppPrefs.accountLevel(context));
+        body.put("device_id", AppPrefs.deviceId(context));
+        return post(portalBaseUrl(), "/api/admin/portal-device/token", body, true);
+    }
 
+    /** Fire-and-forget token registration, for the background paths (token refresh, app launch). */
+    static void registerFcmToken(Context context, String token) {
         new Thread(() -> {
             try {
-                JSONObject body = new JSONObject();
-                body.put("fcm_token", token);
-                body.put("account_id", AppPrefs.accountId(context));
-                body.put("account_level", AppPrefs.accountLevel(context));
-                body.put("device_id", AppPrefs.deviceId(context));
-                String response = post(portalBaseUrl(), "/api/admin/portal-device/token", body, true);
+                String response = registerFcmTokenSync(context, token);
                 Log.i(TAG, "FCM token registered with portal. token=" + tokenSuffix(token)
                         + ", response=" + response);
             } catch (Exception error) {
-                Log.e(TAG, "FCM token registration failed. token=" + tokenSuffix(token)
-                        + ", baseUrl=" + portalBaseUrl(), error);
+                Log.e(TAG, "FCM token registration failed. baseUrl=" + portalBaseUrl(), error);
             }
         }).start();
     }
@@ -77,14 +131,7 @@ final class PortalApi {
     static void enroll(Context context, String devicePublicKeyBase64, String verifierHex, Callback callback) {
         new Thread(() -> {
             try {
-                JSONObject body = new JSONObject();
-                body.put("account_id", AppPrefs.accountId(context));
-                body.put("account_level", AppPrefs.accountLevel(context));
-                body.put("device_id", AppPrefs.deviceId(context));
-                body.put("device_pubkey", devicePublicKeyBase64);
-                body.put("verifier", verifierHex);
-                String message = post(portalBaseUrl(), "/api/admin/portal-enroll", body, true);
-                callback.onComplete(true, message);
+                callback.onComplete(true, enrollSync(context, devicePublicKeyBase64, verifierHex));
             } catch (Exception error) {
                 callback.onComplete(false, error.getMessage());
             }
@@ -213,6 +260,9 @@ final class PortalApi {
     }
 
     private static String tokenSuffix(String token) {
+        if (token == null) {
+            return "(none)";
+        }
         int keep = Math.min(12, token.length());
         return "..." + token.substring(token.length() - keep);
     }

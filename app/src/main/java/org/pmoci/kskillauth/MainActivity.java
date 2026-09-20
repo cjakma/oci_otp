@@ -43,6 +43,8 @@ public class MainActivity extends AppCompatActivity {
     private TextView historyText;
     // Cumulative device-auth failures for the on-launch app lock (per launch session).
     private int launchAuthFailures = 0;
+    // Whether an enrollment already existed when this activity was created; see onResume().
+    private boolean enrolledAtLaunch = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,7 +73,8 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        if (!LocalCredentialStore.isEnrolled(this)) {
+        enrolledAtLaunch = LocalCredentialStore.isEnrolled(this);
+        if (!enrolledAtLaunch) {
             // Req 1 / first run on this device: no stored enrollment yet -> go set one up.
             // EnrollmentActivity shows the userKey screen first, then commits with device auth.
             startActivity(new Intent(this, EnrollmentActivity.class));
@@ -291,6 +294,10 @@ public class MainActivity extends AppCompatActivity {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1001);
         }
 
+        syncFcmToken();
+    }
+
+    private void syncFcmToken() {
         FirebaseMessaging.getInstance().getToken()
                 .addOnSuccessListener(token -> {
                     Log.i(TAG, "FCM token acquired; registering with portal.");
@@ -305,6 +312,12 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         // Re-apply in case the image (or server) was changed in Settings.
         PortalApi.setBaseUrlOverride(AppPrefs.serverBaseUrl(this));
+        // Enrollment finished while this activity was stopped: onCreate's token sync ran before
+        // an account existed and skipped, so run it once now that one does.
+        if (!enrolledAtLaunch && LocalCredentialStore.isEnrolled(this)) {
+            enrolledAtLaunch = true;
+            syncFcmToken();
+        }
         applyMainImage();
         if (historyText != null) {
             historyText.setText(AuthRequestHistoryStore.describeRecent(this));

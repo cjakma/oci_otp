@@ -354,6 +354,10 @@ public class SettingsActivity extends AppCompatActivity {
                     if (success) {
                         keyInput.setText("");
                         refreshUserKeyState();
+                        // Re-register the push token alongside the verifier: a userKey change is
+                        // the other moment a device can end up enrolled but unreachable.
+                        FirebaseMessaging.getInstance().getToken()
+                                .addOnSuccessListener(token -> PortalApi.registerFcmToken(this, token));
                         Toast.makeText(this, "userKey 등록이 완료되었습니다.", Toast.LENGTH_LONG).show();
                     } else {
                         LocalCredentialStore.clear(this);
